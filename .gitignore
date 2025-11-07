@@ -1,0 +1,61 @@
+# Python-generated files
+__pycache__/
+*.py[oc]
+build/
+dist/
+wheels/
+*.egg-info
+
+# Virtual environments
+.venv
+.env
+.oath_credentials.json
+.token.json
+
+# Database SQLite
+data/*.db
+data/ga4_data.db
+data/backups/
+
+# Log files
+*.log
+agent_execution.log
+ga4_extraction.log
+backfill_ga4.log
+setup_database.log
+memory_operations.log
+
+# Email drafts and archives
+email/draft_email.md
+email/archive/*.md
+
+# Output files (CSV reports - legacy)
+output/
+*.csv
+
+# Conversation files
+conversations.json
+conversation_*.json
+
+# Credentials and sensitive files
+credentials/
+*.json
+!pyproject.toml
+!uv.lock
+# Allow specific JSON config files if needed
+# !config.json
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Test files (opzionale - rimuovi se vuoi committare i test)
+# test_*.py
+# test.py

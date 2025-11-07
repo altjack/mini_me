@@ -1,0 +1,5 @@
+2025-11-07 10:53:35,436 - INFO - Database connesso: data/ga4_data.db
+2025-11-07 10:53:35,441 - INFO - Schema database creato con successo
+2025-11-07 10:53:35,441 - INFO - Connessione database chiusa
+2025-11-07 10:53:35,452 - INFO - Redis connesso: localhost:6379 (db=1)
+2025-11-07 10:53:35,454 - INFO - Connessione Redis chiusa

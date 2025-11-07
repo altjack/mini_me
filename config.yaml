@@ -1,0 +1,165 @@
+# ==========================================
+# Configurazione Agent Daily Report GA4
+# ==========================================
+
+# Configurazione Agente AI
+agent:
+  # Modello Anthropic da utilizzare
+  # Opzioni: "claude-sonnet-4.5", "claude-haiku-4-5-20251001"
+  model: "claude-sonnet-4-5-20250929"
+  
+  # Verbose output durante l'esecuzione
+  verbose: true
+
+# Configurazione Database (SQLite + Redis Cache)
+database:
+  sqlite:
+    # Percorso file database SQLite
+    path: "data/ga4_data.db"
+    
+    # Backup automatico abilitato
+    backup_enabled: true
+    
+    # Directory per backup
+    backup_dir: "data/backups"
+    
+    # Frequenza backup (weekly, daily)
+    backup_frequency: "weekly"
+  
+  redis:
+    # Host Redis (default: localhost)
+    host: "localhost"
+    
+    # Porta Redis (default: 6379)
+    port: 6379
+    
+    # Database Redis per cache GA4 (1 = separato da memoria agente)
+    db: 1
+    
+    # Prefisso chiavi Redis per metriche GA4
+    key_prefix: "ga4:metrics:"
+    
+    # TTL cache in giorni (sliding window ultimi 14 giorni)
+    ttl_days: 14
+
+# Configurazione Redis per memoria agente (deprecato - ora in database.redis)
+redis:
+  # Host Redis (default: localhost per installazione locale)
+  host: "localhost"
+  
+  # Porta Redis (default: 6379)
+  port: 6379
+  
+  # Database Redis da utilizzare (0-15)
+  db: 0
+  
+  # Prefisso chiavi Redis per questa applicazione
+  # Tutte le chiavi useranno questo prefisso per evitare conflitti
+  memory_prefix: "agent:memory:weborder"
+
+# Configurazione GA4 Extraction
+ga4_extraction:
+  # Giorni di storico per backfill iniziale
+  backfill_days: 365
+  
+  # Offset giorni per confronto (default: 7 giorni prima)
+  comparison_offset: 7
+
+# Configurazione Esecuzione
+execution:
+  # Cartella contenente i CSV generati dal cron job (LEGACY - ora usa database)
+  data_source: "output"
+  
+  # Cartella dove salvare le email generate
+  output_dir: "email"
+  
+  # Nome file draft email corrente
+  draft_filename: "draft_email.md"
+  
+  # Cartella archivio email approvate
+  archive_dir: "email/archive"
+  
+  # Prompt task per l'agente
+  # Questo è il prompt iniziale che viene inviato all'agente quando eseguito
+  task_prompt: >
+    GENERA UN'EMAIL COMPLETA E PROFESSIONALE con i dati GA4 più recenti.
+    
+    IMPORTANTE: Devi produrre un'email COMPLETA in formato markdown, NON solo confermare 
+    che hai letto i dati. L'email deve essere pronta per essere inviata.
+    
+    STEP DA SEGUIRE:
+    1. Usa get_metrics_summary(period_days=1) per ottenere overview dati più recenti
+    2. Se necessario, usa get_daily_report(date) per dettagli completi
+    3. Analizza le metriche chiave
+    4. SCRIVI L'EMAIL COMPLETA in italiano seguendo questo formato:
+    
+    Oggetto: Weborder Residential Performance Update - [DATA]
+    
+    Ciao [Nome],
+    
+    [Apertura con focus sul trend principale o metrica più significativa]
+    
+    **Metriche Chiave - [DATA]:**
+    
+    - SWI (Switch In): [valore] ([variazione]% vs periodo precedente)
+      - Suddivisione per tipo se disponibile
+    - CR Commodity: [valore]% ([variazione]% vs periodo precedente)
+    - CR Canalizzazione: [valore]% ([variazione]% vs periodo precedente)
+    - Sessioni Commodity: [valore] ([variazione]% vs periodo precedente)
+    - Sessioni Luce&Gas: [valore] ([variazione]% vs periodo precedente)
+    
+    [Analisi e commenti sui trend]
+    
+    [Firma]
+    
+    REQUISITI:
+    - Usa valori REALI dai dati estratti
+    - Mantieni tono professionale ma discorsivo
+    - Evidenzia performance positive
+    - Includi SEMPRE i confronti percentuali
+    - NON usare placeholders
+    
+    OUTPUT ATTESO: Email completa in markdown, NON una conferma di lettura dati.
+
+# Configurazione Email Examples
+examples:
+  # File contenente esempi email storiche
+  source_file: "history.md"
+  
+  # Numero esempi da includere nel context
+  sample_size: 15
+  
+  # Strategia sampling ("recent_weighted", "recent", "random")
+  sampling_strategy: "recent_weighted"
+  
+  # Token budget massimo per esempi (safety)
+  max_tokens: 7000
+
+# Configurazione File Conversazione (DEPRECATED - usa examples sopra)
+
+# Configurazione Logging
+logging:
+  # Livello log (DEBUG, INFO, WARNING, ERROR, CRITICAL)
+  level: "INFO"
+  
+  # File log per operazioni agente
+  agent_log: "agent_execution.log"
+  
+  # File log per operazioni memoria
+  memory_log: "memory_operations.log"
+
+# Opzioni Avanzate
+advanced:
+  # Numero massimo messaggi da includere nel contesto memoria
+  # null = tutti i messaggi, numero = limita agli ultimi N
+  max_memory_messages: null
+  
+  # Timeout esecuzione agente in secondi
+  agent_timeout: 300
+  
+  # Salva automaticamente logs delle esecuzioni
+  save_execution_logs: true
+  
+  # Formato timestamp per file archiviati
+  timestamp_format: "%Y%m%d_%H%M%S"
+
