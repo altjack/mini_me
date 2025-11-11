@@ -10,8 +10,8 @@ Non esegue l'intero workflow, ma verifica che:
 import sys
 import os
 
-# Aggiungi directory corrente al path
-sys.path.append(os.path.dirname(__file__))
+# Aggiungi directory parent al path
+sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 
 def test_imports():
     """Test che tutti i moduli possano essere importati."""
@@ -133,27 +133,23 @@ def test_ga4_module():
     print("\n🔍 Test 5: Verifica modulo GA4...")
     
     try:
-        # Cambia directory per import relativi
-        original_dir = os.getcwd()
-        ga4_dir = os.path.join(os.path.dirname(__file__), 'ga4_extraction')
-        os.chdir(ga4_dir)
+        # Importa i nuovi moduli refactored
+        from ga4_extraction.database import GA4Database
+        print("   ✓ ga4_extraction.database importato correttamente")
         
-        # Prova import
-        from main import main as ga4_main
-        print("   ✓ Modulo ga4_extraction.main importato correttamente")
+        from ga4_extraction.extraction import esegui_giornaliero
+        print("   ✓ ga4_extraction.extraction importato correttamente")
         
-        # Ritorna alla directory originale
-        os.chdir(original_dir)
+        from ga4_extraction.factory import GA4ResourceFactory
+        print("   ✓ ga4_extraction.factory importato correttamente")
+        
+        from ga4_extraction.services import GA4DataService
+        print("   ✓ ga4_extraction.services importato correttamente")
         
         return True
         
     except Exception as e:
-        print(f"   ❌ Errore import ga4_extraction.main: {e}")
-        # Ritorna alla directory originale
-        try:
-            os.chdir(original_dir)
-        except:
-            pass
+        print(f"   ❌ Errore import moduli GA4: {e}")
         return False
 
 

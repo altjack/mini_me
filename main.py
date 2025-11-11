@@ -32,15 +32,16 @@ sys.path.append(os.path.dirname(__file__))
 from run_agent import run_agent_workflow, setup_logging, load_config, ensure_directories
 from approve_draft import approve_draft_workflow, show_memory_stats
 
-# Import database
-from ga4_extraction.database import GA4Database
-from ga4_extraction.redis_cache import GA4RedisCache
-from ga4_extraction.extraction import save_to_database
+# Import service layer
+from ga4_extraction.factory import GA4ResourceFactory
+from ga4_extraction.services import GA4DataService
 
 
 def update_ga4_data(config: dict, logger: logging.Logger) -> tuple:
     """
     Esegue l'aggiornamento dei dati GA4 e salva in database.
+    
+    Usa service layer per gestione centralizzata con check esistenza dati.
     
     Args:
         config: Configurazione caricata
@@ -50,53 +51,23 @@ def update_ga4_data(config: dict, logger: logging.Logger) -> tuple:
         Tuple (success: bool, date: str) - data estratta se successo
     """
     try:
-        logger.info("Inizio estrazione dati GA4...")
+        # Crea risorse usando factory
+        db, cache = GA4ResourceFactory.create_from_config(config)
         
-        # Import delle funzioni di estrazione
-        from ga4_extraction.extraction import esegui_giornaliero
-        
-        # Esegui l'estrazione
-        results, dates = esegui_giornaliero('ieri')
-        
-        logger.info("✓ Estrazione GA4 completata")
-        
-        # Setup database
-        db_config = config.get('database', {})
-        db_path = db_config.get('sqlite', {}).get('path', 'data/ga4_data.db')
-        db = GA4Database(db_path)
-        
-        # Setup Redis (opzionale)
-        try:
-            redis_config = db_config.get('redis', {})
-            cache = GA4RedisCache(
-                host=redis_config.get('host', 'localhost'),
-                port=redis_config.get('port', 6379),
-                db=redis_config.get('db', 1),
-                key_prefix=redis_config.get('key_prefix', 'ga4:metrics:'),
-                ttl_days=redis_config.get('ttl_days', 14)
-            )
-        except Exception as e:
-            logger.warning(f"Redis non disponibile: {e}")
-            cache = None
-        
-        # Salva in database
-        target_date = dates['date_from']
-        success = save_to_database(results, target_date, db, cache, dates)
-        
-        # Chiudi connessioni
-        db.close()
-        if cache:
-            cache.close()
-        
-        if success:
-            logger.info(f"✓ Dati salvati in database per {target_date}")
-            return True, target_date
-        else:
-            logger.error("Errore salvataggio in database")
-            return False, None
+        # Crea service
+        with GA4DataService(db, cache) as service:
+            # Estrai e salva per ieri (con check esistenza automatico)
+            success, target_date = service.extract_and_save_for_yesterday(force=False)
+            
+            if success:
+                logger.info(f"✓ Dati disponibili per {target_date}")
+                return True, target_date
+            else:
+                logger.error("Errore estrazione/salvataggio dati")
+                return False, None
         
     except Exception as e:
-        logger.error(f"Errore estrazione GA4: {e}", exc_info=True)
+        logger.error(f"Errore update GA4 data: {e}", exc_info=True)
         return False, None
 
 

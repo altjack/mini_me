@@ -11,18 +11,20 @@ import os
 import logging
 from pathlib import Path
 
-# Aggiungi directory corrente al path
-sys.path.insert(0, os.path.dirname(__file__))
+# Aggiungi directory parent al path (per import da ga4_extraction)
+sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 
 from ga4_extraction.database import GA4Database
 from ga4_extraction.redis_cache import GA4RedisCache
 
 # Setup logging
+log_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'logs')
+os.makedirs(log_dir, exist_ok=True)
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(levelname)s - %(message)s',
     handlers=[
-        logging.FileHandler('setup_database.log'),
+        logging.FileHandler(os.path.join(log_dir, 'setup_database.log')),
         logging.StreamHandler()
     ]
 )

@@ -212,8 +212,33 @@ def format_examples_for_prompt(examples: List[EmailExample]) -> str:
         return ""
     
     output = "=== ESEMPI EMAIL PRECEDENTI ===\n\n"
-    output += "Usa questi esempi come riferimento per formato, stile e struttura.\n"
-    output += "Mantieni lo stesso tono analitico, professionale ma discorsivo.\n\n"
+    output += "Questi sono esempi REALI di email generate in passato per lo stesso report giornaliero GA4.\n"
+    output += "Rappresentano lo STILE e la STRUTTURA che devi EMULARE nelle tue email.\n\n"
+    
+    output += "**PATTERN DA REPLICARE negli esempi:**\n"
+    output += "1. APERTURA: Inizio diretto con la metrica principale (es. 'Mercoledì 30 ottobre registra 256 SWI...')\n"
+    output += "2. CONTESTO: Variazione percentuale immediata con confronto temporale (es. '-11% rispetto a mercoledì 22 ottobre')\n"
+    output += "3. DETTAGLIO PRODOTTI: Percentuali specifiche per Fixa, Pernoi, Trend, Sempre\n"
+    output += "4. FLUSSO NARRATIVO: Sessioni → Analisi canali (se rilevante) → CR → Insights finali\n"
+    output += "5. LINGUAGGIO: Professionale ma discorsivo, con frasi articolate e analisi contestuali\n"
+    output += "6. ANALISI: Non solo numeri, ma interpretazione e contesto (es. 'confermando la prosecuzione dell\\'effetto delle campagne media')\n"
+    output += "7. CHIUSURA: Firma semplice 'Giacomo' senza formule di commiato elaborate\n\n"
+    
+    output += "**STILE LINGUISTICO DA EMULARE:**\n"
+    output += "- Espressioni come: 'registra', 'si attesta su', 'evidenziando', 'confermando', 'trainato principalmente da'\n"
+    output += "- Confronti articolati: 'vs [giorno] [data]', 'rispetto a', 'a fronte di'\n"
+    output += "- Analisi causali: 'dovuto a', 'generando un impatto', 'risentendo della combinazione'\n"
+    output += "- Valutazioni: 'segnale positivo', 'in controtendenza', 'mantiene la predominanza'\n\n"
+    
+    output += "**ISTRUZIONI CRITICHE:**\n"
+    output += "- NON usare template fissi o strutture rigide a paragrafi numerati\n"
+    output += "- EMULA il 'flusso narrativo' naturale degli esempi\n"
+    output += "- USA le stesse espressioni e formule che vedi ripetute negli esempi\n"
+    output += "- MANTIENI il tono analitico ma accessibile, mai troppo formale o burocratico\n"
+    output += "- INTEGRA analisi e numeri in modo fluido, non come liste di bullet point\n\n"
+    
+    output += "---\n\n"
+    output += "ESEMPI CONCRETI DA SEGUIRE:\n\n"
     
     for example in examples:
         date_formatted = example.date.strftime('%d/%m/%Y')
@@ -222,7 +247,10 @@ def format_examples_for_prompt(examples: List[EmailExample]) -> str:
         output += example.content
         output += "\n\n"
     
-    output += "=== FINE ESEMPI ===\n"
+    output += "---\n\n"
+    output += "=== FINE ESEMPI ===\n\n"
+    output += "RICORDA: Il tuo compito è scrivere un'email che potrebbe essere confusa con questi esempi per stile e qualità.\n"
+    output += "Non copiare pedissequamente, ma EMULA l'approccio, il tono, e la struttura narrativa.\n"
     
     return output
 

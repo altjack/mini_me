@@ -19,6 +19,7 @@ data/backups/
 
 # Log files
 *.log
+logs/
 agent_execution.log
 ga4_extraction.log
 backfill_ga4.log

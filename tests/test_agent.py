@@ -7,8 +7,8 @@ import sys
 import os
 from datetime import datetime
 
-# Aggiungi il percorso del progetto al path
-sys.path.append(os.path.join(os.path.dirname(__file__)))
+# Aggiungi directory parent al path
+sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 
 def test_agent_imports():
     """Testa che tutte le importazioni funzionino correttamente"""

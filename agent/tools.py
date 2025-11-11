@@ -70,8 +70,16 @@ def get_daily_report(date: str) -> str:
             comp_info = comparison.get('comparison', {})
             prev_info = f"Confrontato con: {comparison['previous_date']}"
         
+        # Calcola giorno della settimana e mese in italiano
+        giorni_settimana = ['lunedì', 'martedì', 'mercoledì', 'giovedì', 'venerdì', 'sabato', 'domenica']
+        mesi = ['gennaio', 'febbraio', 'marzo', 'aprile', 'maggio', 'giugno', 
+                'luglio', 'agosto', 'settembre', 'ottobre', 'novembre', 'dicembre']
+        giorno_nome = giorni_settimana[requested_date.weekday()]
+        mese_nome = mesi[requested_date.month - 1]
+        data_formattata = f"{giorno_nome.capitalize()} {requested_date.day} {mese_nome}"
+        
         # Formatta report
-        report = f"""# Report Giornaliero GA4 - {target_date_str}
+        report = f"""# Report Giornaliero GA4 - {data_formattata} ({target_date_str})
 {prev_info}
 ### Generato il: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
 
@@ -152,10 +160,9 @@ def get_metrics_summary(period_days: int = 1) -> str:
         
         db, cache = _get_db_instances()
         
-        # Calcola date: ultimo giorno disponibile (ieri - 1 per i dati processati)
+        # Calcola date: ultimo giorno disponibile (ieri)
         yesterday = datetime.now() - timedelta(days=1)
-        target_date = yesterday - timedelta(days=1)  # Ieri - 1 per dati processati
-        target_date_str = target_date.strftime('%Y-%m-%d')
+        target_date_str = yesterday.strftime('%Y-%m-%d')
         
         # Recupera metriche dal database
         current = db.get_metrics(target_date_str)
@@ -173,9 +180,17 @@ def get_metrics_summary(period_days: int = 1) -> str:
             comp_info = comparison.get('comparison', {})
             prev_info = f"Confrontato con: {comparison['previous_date']}"
         
+        # Calcola giorno della settimana e mese in italiano
+        giorni_settimana = ['lunedì', 'martedì', 'mercoledì', 'giovedì', 'venerdì', 'sabato', 'domenica']
+        mesi = ['gennaio', 'febbraio', 'marzo', 'aprile', 'maggio', 'giugno', 
+                'luglio', 'agosto', 'settembre', 'ottobre', 'novembre', 'dicembre']
+        giorno_nome = giorni_settimana[yesterday.weekday()]
+        mese_nome = mesi[yesterday.month - 1]
+        data_formattata = f"{giorno_nome.capitalize()} {yesterday.day} {mese_nome}"
+        
         # Formatta report
         report = f"""# Report Giornaliero GA4
-## Data: {target_date_str}
+## Data: {data_formattata} ({target_date_str})
 {prev_info}
 ### Generato il: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
 

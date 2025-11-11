@@ -324,6 +324,17 @@ def run_agent_workflow(config: dict, logger: logging.Logger = None, skip_data_ch
         logger.error(f"Il risultato non è una stringa: {type(result_str)}")
         result_str = str(result_str)
     
+    # Filtra righe JSON dei tool calls (formato: {"type": "tool_call", ...})
+    lines = result_str.split('\n')
+    filtered_lines = []
+    for line in lines:
+        stripped = line.strip()
+        # Skip righe che sembrano JSON di tool calls
+        if stripped.startswith('{"type":') and ('"tool_call"' in stripped or '"tool_result"' in stripped):
+            continue
+        filtered_lines.append(line)
+    result_str = '\n'.join(filtered_lines)
+    
     # 6. Salva draft
     draft_path = save_draft(result_str, config, logger)
     logger.info(f"✓ Draft salvato: {draft_path}")
@@ -332,9 +343,54 @@ def run_agent_workflow(config: dict, logger: logging.Logger = None, skip_data_ch
     return draft_path
 
 
+def extract_ga4_data_for_yesterday(config: dict, logger: logging.Logger) -> tuple:
+    """
+    Estrae dati GA4 per ieri e li salva nel database.
+    
+    Usa service layer centralizzato (stessa implementazione di main.py).
+    
+    Args:
+        config: Configurazione caricata
+        logger: Logger per messaggi
+    
+    Returns:
+        Tuple (success: bool, date: str) - data estratta se successo
+    """
+    try:
+        # Import service layer
+        from ga4_extraction.factory import GA4ResourceFactory
+        from ga4_extraction.services import GA4DataService
+        
+        logger.info("Inizio estrazione dati GA4 per ieri...")
+        
+        # Crea risorse usando factory
+        db, cache = GA4ResourceFactory.create_from_config(config)
+        
+        # Crea service
+        with GA4DataService(db, cache) as service:
+            # Estrai e salva per ieri (con check esistenza automatico)
+            success, target_date = service.extract_and_save_for_yesterday(force=False)
+            
+            if success:
+                logger.info(f"✓ Dati disponibili per {target_date}")
+                return True, target_date
+            else:
+                logger.error("Errore estrazione/salvataggio dati")
+                return False, None
+        
+    except Exception as e:
+        logger.error(f"Errore estrazione GA4: {e}", exc_info=True)
+        return False, None
+
+
 def main():
     """
-    Funzione principale per esecuzione standalone (retrocompatibilità).
+    Funzione principale per esecuzione standalone.
+    
+    Workflow:
+    1. Estrae dati GA4 per ieri
+    2. Salva in database + Redis
+    3. Genera email con l'agente
     """
     print("=" * 60)
     print("  🤖 AGENT DAILY REPORT - Esecuzione On-Demand")
@@ -350,19 +406,36 @@ def main():
         # 2. Setup logging
         logger = setup_logging(config)
         
-        # 3. Verifica dati GA4
-        print("📊 Verifica dati GA4...")
-        if not check_data_availability(config, logger):
-            print("\n❌ ERRORE: Dati GA4 non disponibili")
-            print("\nEsegui prima: uv run main.py")
+        # 3. Estrai dati GA4 per ieri
+        print("📊 Estrazione dati GA4 per ieri...")
+        print("   (Questo può richiedere alcuni secondi)")
+        print()
+        
+        success, extracted_date = extract_ga4_data_for_yesterday(config, logger)
+        
+        if not success:
+            print("\n❌ ERRORE: Estrazione GA4 fallita")
+            print()
+            print("⚠️  POSSIBILI CAUSE:")
+            print("   1. Credenziali Google Analytics non valide o scadute")
+            print("   2. Problema di connessione alla API di Google")
+            print("   3. Configurazione GA4 non corretta")
+            print()
+            print("📝 VERIFICA:")
+            print("   - File credentials/token.json è presente e valido")
+            print("   - La configurazione in ga4_extraction/config.py è corretta")
+            print("   - Log dettagliati in: ga4_extraction.log")
+            print()
             sys.exit(1)
-        print("✓ Dati disponibili\n")
+        
+        print(f"✓ Dati estratti e salvati per {extracted_date}\n")
         
         # 4. Esegui workflow agente
         print("🧠 Creazione agente con memoria Redis...")
         print("🚀 Esecuzione task agente...")
         print("-" * 60)
         
+        # Skip data check perché abbiamo appena estratto i dati
         draft_path = run_agent_workflow(config, logger, skip_data_check=True)
         
         print("-" * 60)

@@ -587,11 +587,8 @@ def esegui_giornaliero(period_type: str = 'ieri') -> Tuple[Dict, Dict[str, str]]
     
     # 4. Start Funnel
     start_funnel_value = giornaliero_startfunnel(client, target_date)
-
-    # 5. Sessioni per canale
-    results['sessioni_canale'] = daily_sessions_channels(client, target_date)
     
-    # 6. CR Canalizzazione
+    # 5. CR Canalizzazione
     if results['swi'] is not None and results['swi'] > 0:
         total_swi = results['swi']
         results['cr_canalizzazione'] = giornaliero_cr_canalizzazione(
@@ -599,12 +596,15 @@ def esegui_giornaliero(period_type: str = 'ieri') -> Tuple[Dict, Dict[str, str]]
             start_funnel_value
         )
         
-        # 7. Prodotti (usa total_swi)
+        # 6. Prodotti (usa total_swi)
         results['prodotti'] = giornaliero_prodotti(client, target_date, total_swi)
     else:
         logger.warning("Impossibile calcolare prodotti e CR canalizzazione: SWI mancante")
         results['cr_canalizzazione'] = None
         results['prodotti'] = None
+    
+    # NOTA: sessioni_canale NON estratte qui (ritardo GA4 ~48h)
+    # Usare extract_sessions_channels_delayed() per D-2
 
     logger.info("=" * 70)
     logger.info("ESTRAZIONE COMPLETATA")
@@ -836,22 +836,8 @@ def save_to_database(results: Dict, date: str, db, redis_cache=None, dates: Dict
             if success:
                 logger.info(f"✓ Prodotti salvati in SQLite per {date}: {len(products)} prodotti")
         
-        # Prepara sessioni per canale
-        channels = []
-        if results.get('sessioni_canale') is not None and isinstance(results['sessioni_canale'], pd.DataFrame):
-            if not results['sessioni_canale'].empty:
-                for _, row in results['sessioni_canale'].iterrows():
-                    channels.append({
-                        'channel': row['Channel'],
-                        'commodity_sessions': int(row['Commodity_Sessions']),
-                        'lucegas_sessions': int(row['LuceGas_Sessions'])
-                    })
-        
-        # Salva sessioni per canale in SQLite
-        if channels:
-            success = db.insert_sessions_by_channel(date, channels, replace=True)
-            if success:
-                logger.info(f"✓ Sessioni per canale salvate in SQLite per {date}: {len(channels)} canali")
+        # NOTA: sessioni_canale non salvate qui (ritardo GA4 ~48h)
+        # Usare extract_sessions_channels_delayed() separatamente
         
         # Salva in Redis cache (se disponibile)
         if redis_cache:
@@ -869,11 +855,105 @@ def save_to_database(results: Dict, date: str, db, redis_cache=None, dates: Dict
         return False
 
 
+def validate_date_for_channels(target_date_str: str, min_delay_days: int = 2) -> tuple:
+    """
+    Valida che una data sia sufficientemente vecchia per avere dati canale GA4.
+    
+    Args:
+        target_date_str: Data da validare (YYYY-MM-DD)
+        min_delay_days: Ritardo minimo in giorni (default: 2)
+    
+    Returns:
+        Tuple (is_valid: bool, message: str)
+    """
+    from datetime import datetime, timedelta
+    
+    target_date = datetime.strptime(target_date_str, '%Y-%m-%d')
+    today = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
+    min_date = today - timedelta(days=min_delay_days)
+    
+    if target_date > min_date:
+        days_diff = (today - target_date).days
+        return False, f"Data troppo recente ({target_date_str}). GA4 richiede ~48h di ritardo. Giorni trascorsi: {days_diff}, richiesti: {min_delay_days}"
+    
+    return True, f"Data valida per estrazione canali ({target_date_str})"
+
+
+def extract_sessions_channels_delayed(target_date_str: str, db=None, skip_validation: bool = False) -> bool:
+    """
+    Estrae sessioni per canale per una data specifica (D-2).
+    
+    GA4 ha un ritardo di ~48h per i dati per canale, quindi questa funzione
+    dovrebbe essere eseguita 2 giorni dopo la data target.
+    
+    Args:
+        target_date_str: Data da estrarre (YYYY-MM-DD) - tipicamente D-2
+        db: Istanza GA4Database per salvare direttamente (opzionale)
+        skip_validation: Se True, salta validazione ritardo (default: False)
+    
+    Returns:
+        True se successo, False altrimenti
+    """
+    try:
+        # Validazione data (se non skippata)
+        if not skip_validation:
+            is_valid, message = validate_date_for_channels(target_date_str)
+            if not is_valid:
+                logger.warning(f"⚠️  {message}")
+                logger.warning(f"⚠️  Estrazione canali NON eseguita per {target_date_str}")
+                print(f"\n⚠️  WARNING: {message}")
+                print(f"⚠️  Estrazione canali NON eseguita per {target_date_str}")
+                print(f"💡 SUGGERIMENTO: Attendi almeno 48h dalla data target\n")
+                return False
+            else:
+                logger.info(message)
+        
+        logger.info(f"Estrazione sessioni per canale (delayed) per {target_date_str}")
+        
+        # Autenticazione
+        creds = get_credentials()
+        client = BetaAnalyticsDataClient(credentials=creds)
+        
+        # Estrai sessioni per canale
+        sessions_df = daily_sessions_channels(client, target_date_str)
+        
+        if sessions_df.empty:
+            logger.warning(f"Nessun dato canale per {target_date_str}")
+            return False
+        
+        # Salva in database se fornito
+        if db:
+            channels = []
+            for _, row in sessions_df.iterrows():
+                channels.append({
+                    'channel': row['Channel'],
+                    'commodity_sessions': int(row['Commodity_Sessions']),
+                    'lucegas_sessions': int(row['LuceGas_Sessions'])
+                })
+            
+            success = db.insert_sessions_by_channel(target_date_str, channels, replace=True)
+            if success:
+                logger.info(f"✓ Sessioni canale salvate per {target_date_str}: {len(channels)} canali")
+                return True
+            else:
+                logger.error(f"Errore salvataggio sessioni canale per {target_date_str}")
+                return False
+        
+        return True
+        
+    except Exception as e:
+        logger.error(f"Errore estrazione sessioni canale per {target_date_str}: {e}", exc_info=True)
+        return False
+
+
 def extract_for_date(target_date_str: str) -> Tuple[Dict, Dict[str, str]]:
     """
     Estrae dati GA4 per una data specifica.
     
     Utile per backfill o ri-estrazione di date specifiche.
+    
+    NOTA: Non include sessioni_canale (ritardo GA4 ~48h).
+    Usare extract_sessions_channels_delayed() separatamente per D-2.
     
     Args:
         target_date_str: Data da estrarre (YYYY-MM-DD)
@@ -929,6 +1009,9 @@ def extract_for_date(target_date_str: str) -> Tuple[Dict, Dict[str, str]]:
         logger.warning("Impossibile calcolare prodotti e CR canalizzazione: SWI mancante")
         results['cr_canalizzazione'] = None
         results['prodotti'] = None
+    
+    # NOTA: sessioni_canale NON estratte qui (ritardo GA4 ~48h)
+    # Usare extract_sessions_channels_delayed() per D-2
     
     return results, dates
 

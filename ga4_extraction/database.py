@@ -511,6 +511,43 @@ class GA4Database:
             'avg_swi_conversioni': 0
         }
     
+    def data_exists(self, date: str, check_products: bool = False) -> bool:
+        """
+        Verifica se esistono dati completi per una data specifica.
+        
+        Args:
+            date: Data in formato YYYY-MM-DD
+            check_products: Se True, verifica anche presenza prodotti (default: False)
+        
+        Returns:
+            True se dati esistono e sono completi, False altrimenti
+        """
+        try:
+            # Check metriche principali
+            metrics = self.get_metrics(date)
+            if not metrics:
+                return False
+            
+            # Verifica che i campi essenziali non siano nulli/zero
+            essential_fields = ['sessioni_commodity', 'swi_conversioni']
+            for field in essential_fields:
+                if metrics.get(field) is None or metrics.get(field) == 0:
+                    logger.debug(f"Campo {field} mancante o zero per {date}")
+                    return False
+            
+            # Check prodotti se richiesto
+            if check_products:
+                products = self.get_products(date)
+                if not products or len(products) == 0:
+                    logger.debug(f"Prodotti mancanti per {date}")
+                    return False
+            
+            return True
+            
+        except Exception as e:
+            logger.error(f"Errore verifica esistenza dati per {date}: {e}")
+            return False
+    
     def close(self):
         """Chiude connessione database."""
         if self.conn:

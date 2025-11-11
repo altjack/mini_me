@@ -4385,3 +4385,633 @@ IMPORTANTE: Devi produrre un'em...
 2025-11-07 14:34:20,449 - INFO - ✓ Draft salvato: email/draft_email.md
 2025-11-07 14:34:20,449 - INFO - ✓ Draft salvato: email/draft_email.md
 2025-11-07 14:34:20,449 - INFO - === Agent workflow completato con successo ===
+2025-11-11 09:19:21,199 - INFO - Refresh token in corso...
+2025-11-11 09:19:21,466 - INFO - Database connesso: data/ga4_data.db
+2025-11-11 09:19:21,467 - INFO - Connessione database chiusa
+2025-11-11 09:19:21,468 - INFO - Database connesso: data/ga4_data.db
+2025-11-11 09:19:21,473 - INFO - Connessione database chiusa
+2025-11-11 09:19:38,443 - INFO - Database connesso: data/ga4_data.db
+2025-11-11 09:19:38,443 - INFO - Connessione database chiusa
+2025-11-11 09:19:38,444 - INFO - Database connesso: data/ga4_data.db
+2025-11-11 09:19:38,445 - INFO - Connessione database chiusa
+2025-11-11 09:21:11,533 - INFO - Connessione database: data/ga4_data.db
+2025-11-11 09:21:11,535 - INFO - Database connesso: data/ga4_data.db
+2025-11-11 09:21:11,546 - INFO - Redis connesso: localhost:6379 (db=1)
+2025-11-11 09:21:11,546 - INFO - ✓ Redis cache connesso
+2025-11-11 09:21:11,546 - INFO - Range date: 2025-09-12 → 2025-11-10
+2025-11-11 09:29:29,284 - INFO - Connessione database chiusa
+2025-11-11 09:29:29,286 - INFO - Connessione Redis chiusa
+2025-11-11 09:29:51,844 - INFO - Connessione database: data/ga4_data.db
+2025-11-11 09:29:51,845 - INFO - Database connesso: data/ga4_data.db
+2025-11-11 09:29:51,848 - INFO - Redis connesso: localhost:6379 (db=1)
+2025-11-11 09:29:51,848 - INFO - ✓ Redis cache connesso
+2025-11-11 09:29:51,848 - INFO - Range date: 2025-09-12 → 2025-11-09
+2025-11-11 09:29:55,176 - INFO - Inizio backfill per 2025-11-06
+2025-11-11 09:29:55,177 - INFO - Estrazione per data specifica: 2025-11-06
+2025-11-11 09:29:58,492 - INFO - Esecuzione: giornaliero_startfunnel
+2025-11-11 09:30:04,276 - INFO - Visualizzazioni step 1 funnel: 618.0
+2025-11-11 09:30:04,277 - INFO - Esecuzione: giornaliero_cr_canalizzazione
+2025-11-11 09:30:04,277 - INFO - Conversioni: 208, Start funnel: 618.0
+2025-11-11 09:30:04,280 - INFO - CR canalizzazione: 33.66%
+2025-11-11 09:30:04,280 - INFO - Esecuzione: giornaliero_prodotti
+2025-11-11 09:30:09,518 - INFO - Prodotti analizzati: 4
+2025-11-11 09:30:09,521 - INFO - Metriche salvate per data: 2025-11-06
+2025-11-11 09:30:09,521 - INFO - ✓ Metriche salvate in SQLite per 2025-11-06
+2025-11-11 09:30:09,523 - INFO - Prodotti salvati per data 2025-11-06: 4 prodotti
+2025-11-11 09:30:09,523 - INFO - ✓ Prodotti salvati in SQLite per 2025-11-06: 4 prodotti
+2025-11-11 09:30:09,526 - INFO - ✓ Metriche cached in Redis per 2025-11-06
+2025-11-11 09:30:09,526 - INFO - ✓ Dati principali salvati per 2025-11-06
+2025-11-11 09:30:09,526 - INFO - Inizio backfill per 2025-11-07
+2025-11-11 09:30:09,526 - INFO - Estrazione per data specifica: 2025-11-07
+2025-11-11 09:30:13,319 - INFO - Esecuzione: giornaliero_startfunnel
+2025-11-11 09:30:17,663 - INFO - Visualizzazioni step 1 funnel: 513.0
+2025-11-11 09:30:17,664 - INFO - Esecuzione: giornaliero_cr_canalizzazione
+2025-11-11 09:30:17,664 - INFO - Conversioni: 200, Start funnel: 513.0
+2025-11-11 09:30:17,664 - INFO - CR canalizzazione: 38.99%
+2025-11-11 09:30:17,664 - INFO - Esecuzione: giornaliero_prodotti
+2025-11-11 09:30:21,350 - INFO - Prodotti analizzati: 4
+2025-11-11 09:30:21,353 - INFO - Metriche salvate per data: 2025-11-07
+2025-11-11 09:30:21,353 - INFO - ✓ Metriche salvate in SQLite per 2025-11-07
+2025-11-11 09:30:21,356 - INFO - Prodotti salvati per data 2025-11-07: 4 prodotti
+2025-11-11 09:30:21,356 - INFO - ✓ Prodotti salvati in SQLite per 2025-11-07: 4 prodotti
+2025-11-11 09:30:21,357 - INFO - ✓ Metriche cached in Redis per 2025-11-07
+2025-11-11 09:30:21,357 - INFO - ✓ Dati principali salvati per 2025-11-07
+2025-11-11 09:30:21,357 - INFO - Inizio backfill per 2025-11-08
+2025-11-11 09:30:21,357 - INFO - Estrazione per data specifica: 2025-11-08
+2025-11-11 09:30:25,240 - INFO - Esecuzione: giornaliero_startfunnel
+2025-11-11 09:30:27,800 - INFO - Visualizzazioni step 1 funnel: 413.0
+2025-11-11 09:30:27,800 - INFO - Esecuzione: giornaliero_cr_canalizzazione
+2025-11-11 09:30:27,800 - INFO - Conversioni: 151, Start funnel: 413.0
+2025-11-11 09:30:27,801 - INFO - CR canalizzazione: 36.56%
+2025-11-11 09:30:27,801 - INFO - Esecuzione: giornaliero_prodotti
+2025-11-11 09:30:28,927 - INFO - Prodotti analizzati: 4
+2025-11-11 09:30:28,930 - INFO - Metriche salvate per data: 2025-11-08
+2025-11-11 09:30:28,930 - INFO - ✓ Metriche salvate in SQLite per 2025-11-08
+2025-11-11 09:30:28,933 - INFO - Prodotti salvati per data 2025-11-08: 4 prodotti
+2025-11-11 09:30:28,933 - INFO - ✓ Prodotti salvati in SQLite per 2025-11-08: 4 prodotti
+2025-11-11 09:30:28,934 - INFO - ✓ Metriche cached in Redis per 2025-11-08
+2025-11-11 09:30:28,934 - INFO - ✓ Dati principali salvati per 2025-11-08
+2025-11-11 09:30:28,934 - INFO - Inizio backfill per 2025-11-09
+2025-11-11 09:30:28,934 - INFO - Estrazione per data specifica: 2025-11-09
+2025-11-11 09:30:32,045 - INFO - Esecuzione: giornaliero_startfunnel
+2025-11-11 09:30:34,868 - INFO - Visualizzazioni step 1 funnel: 301.0
+2025-11-11 09:30:34,869 - INFO - Esecuzione: giornaliero_cr_canalizzazione
+2025-11-11 09:30:34,869 - INFO - Conversioni: 106, Start funnel: 301.0
+2025-11-11 09:30:34,869 - INFO - CR canalizzazione: 35.22%
+2025-11-11 09:30:34,869 - INFO - Esecuzione: giornaliero_prodotti
+2025-11-11 09:30:35,915 - INFO - Prodotti analizzati: 4
+2025-11-11 09:30:35,917 - INFO - Metriche salvate per data: 2025-11-09
+2025-11-11 09:30:35,917 - INFO - ✓ Metriche salvate in SQLite per 2025-11-09
+2025-11-11 09:30:35,920 - INFO - Prodotti salvati per data 2025-11-09: 4 prodotti
+2025-11-11 09:30:35,920 - INFO - ✓ Prodotti salvati in SQLite per 2025-11-09: 4 prodotti
+2025-11-11 09:30:35,920 - INFO - ✓ Metriche cached in Redis per 2025-11-09
+2025-11-11 09:30:35,921 - INFO - ✓ Dati principali salvati per 2025-11-09
+2025-11-11 09:30:35,922 - INFO - Connessione database chiusa
+2025-11-11 09:30:35,922 - INFO - Connessione Redis chiusa
+2025-11-11 09:30:35,922 - INFO - Backfill completato: 4 successi, 0 falliti
+2025-11-11 09:41:02,647 - INFO - Database connesso: data/ga4_data.db
+2025-11-11 09:41:02,650 - INFO - Connessione database chiusa
+2025-11-11 09:41:02,650 - INFO - ✓ Database contiene 369 record
+2025-11-11 09:41:02,650 - INFO -    Periodo: 2024-11-06 → 2025-11-09
+2025-11-11 09:41:02,650 - INFO - === Inizio esecuzione agent workflow ===
+2025-11-11 09:41:02,650 - INFO - ✓ Directory configurate
+2025-11-11 09:41:02,654 - INFO - ✓ Agente creato (model: claude-sonnet-4-5-20250929)
+2025-11-11 09:41:02,654 - INFO - Task prompt: INSTRUCTIONS: Se in Senior Digital Analyst, hai accesso hai dati di GA4 e lavori come consulente per...
+2025-11-11 09:41:07,601 - INFO - HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2025-11-11 09:41:07,682 - INFO - Database connesso: data/ga4_data.db
+2025-11-11 09:41:07,702 - INFO - Redis connesso: localhost:6379 (db=1)
+2025-11-11 09:41:07,704 - INFO - Connessione database chiusa
+2025-11-11 09:41:07,705 - INFO - Connessione Redis chiusa
+2025-11-11 09:41:07,714 - INFO - Database connesso: data/ga4_data.db
+2025-11-11 09:41:07,736 - INFO - Redis connesso: localhost:6379 (db=1)
+2025-11-11 09:41:07,736 - INFO - Connessione database chiusa
+2025-11-11 09:41:07,736 - INFO - Connessione Redis chiusa
+2025-11-11 09:41:07,743 - INFO - Database connesso: data/ga4_data.db
+2025-11-11 09:41:07,744 - INFO - Redis connesso: localhost:6379 (db=1)
+2025-11-11 09:41:07,744 - INFO - Connessione database chiusa
+2025-11-11 09:41:07,744 - INFO - Connessione Redis chiusa
+2025-11-11 09:41:10,609 - INFO - HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2025-11-11 09:41:10,628 - INFO - Database connesso: data/ga4_data.db
+2025-11-11 09:41:10,630 - INFO - Redis connesso: localhost:6379 (db=1)
+2025-11-11 09:41:10,632 - INFO - Connessione database chiusa
+2025-11-11 09:41:10,632 - INFO - Connessione Redis chiusa
+2025-11-11 09:41:13,895 - INFO - HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2025-11-11 09:41:13,908 - INFO - Database connesso: data/ga4_data.db
+2025-11-11 09:41:13,910 - INFO - Redis connesso: localhost:6379 (db=1)
+2025-11-11 09:41:13,910 - INFO - Connessione database chiusa
+2025-11-11 09:41:13,910 - INFO - Connessione Redis chiusa
+2025-11-11 09:41:28,822 - INFO - HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2025-11-11 09:41:28,842 - INFO - Task completato con successo
+2025-11-11 09:41:28,843 - INFO - Tipo risultato: <class 'datapizza.agents.agent.StepResult'>
+2025-11-11 09:41:28,843 - INFO - Attributi disponibili: ['__class__', '__delattr__', '__dict__', '__dir__', '__doc__', '__eq__', '__format__', '__ge__', '__getattribute__', '__getstate__', '__gt__', '__hash__', '__init__', '__init_subclass__', '__le__', '__lt__', '__module__', '__ne__', '__new__', '__reduce__', '__reduce_ex__', '__repr__', '__setattr__', '__sizeof__', '__str__', '__subclasshook__', '__weakref__', 'content', 'index', 'text', 'tools_used', 'usage']
+2025-11-11 09:41:28,843 - INFO - __dict__: dict_keys(['index', 'content', 'usage'])
+2025-11-11 09:41:28,843 - INFO - Contenuto estratto (tipo: <class 'str'>, lunghezza: 2274)
+2025-11-11 09:41:28,845 - INFO - ✓ Draft salvato: email/draft_email.md
+2025-11-11 09:41:28,845 - INFO - ✓ Draft salvato: email/draft_email.md
+2025-11-11 09:41:28,845 - INFO - === Agent workflow completato con successo ===
+2025-11-11 09:43:36,444 - INFO - Database connesso: data/ga4_data.db
+2025-11-11 09:43:36,446 - INFO - Connessione database chiusa
+2025-11-11 09:43:36,446 - INFO - ✓ Database contiene 369 record
+2025-11-11 09:43:36,446 - INFO -    Periodo: 2024-11-06 → 2025-11-09
+2025-11-11 09:43:36,446 - INFO - === Inizio esecuzione agent workflow ===
+2025-11-11 09:43:36,446 - INFO - ✓ Directory configurate
+2025-11-11 09:43:36,447 - INFO - ✓ Agente creato (model: claude-sonnet-4-5-20250929)
+2025-11-11 09:43:36,447 - INFO - Task prompt: INSTRUCTIONS: Se in Senior Digital Analyst, hai accesso hai dati di GA4 e lavori come consulente per...
+2025-11-11 09:43:40,724 - INFO - HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2025-11-11 09:43:40,740 - INFO - Database connesso: data/ga4_data.db
+2025-11-11 09:43:40,742 - INFO - Redis connesso: localhost:6379 (db=1)
+2025-11-11 09:43:40,746 - INFO - Database connesso: data/ga4_data.db
+2025-11-11 09:43:40,748 - INFO - Redis connesso: localhost:6379 (db=1)
+2025-11-11 09:43:40,754 - INFO - Database connesso: data/ga4_data.db
+2025-11-11 09:43:40,755 - INFO - Redis connesso: localhost:6379 (db=1)
+2025-11-11 09:43:43,701 - INFO - HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2025-11-11 09:43:43,720 - INFO - Database connesso: data/ga4_data.db
+2025-11-11 09:43:43,722 - INFO - Redis connesso: localhost:6379 (db=1)
+2025-11-11 09:43:43,723 - INFO - Connessione database chiusa
+2025-11-11 09:43:43,723 - INFO - Connessione Redis chiusa
+2025-11-11 09:43:47,769 - INFO - HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2025-11-11 09:43:47,791 - INFO - Database connesso: data/ga4_data.db
+2025-11-11 09:43:47,792 - INFO - Redis connesso: localhost:6379 (db=1)
+2025-11-11 09:43:47,796 - INFO - Database connesso: data/ga4_data.db
+2025-11-11 09:43:47,797 - INFO - Redis connesso: localhost:6379 (db=1)
+2025-11-11 09:43:47,797 - INFO - Connessione database chiusa
+2025-11-11 09:43:47,797 - INFO - Connessione Redis chiusa
+2025-11-11 09:44:02,782 - INFO - HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2025-11-11 09:44:02,795 - INFO - Task completato con successo
+2025-11-11 09:44:02,795 - INFO - Tipo risultato: <class 'datapizza.agents.agent.StepResult'>
+2025-11-11 09:44:02,795 - INFO - Attributi disponibili: ['__class__', '__delattr__', '__dict__', '__dir__', '__doc__', '__eq__', '__format__', '__ge__', '__getattribute__', '__getstate__', '__gt__', '__hash__', '__init__', '__init_subclass__', '__le__', '__lt__', '__module__', '__ne__', '__new__', '__reduce__', '__reduce_ex__', '__repr__', '__setattr__', '__sizeof__', '__str__', '__subclasshook__', '__weakref__', 'content', 'index', 'text', 'tools_used', 'usage']
+2025-11-11 09:44:02,795 - INFO - __dict__: dict_keys(['index', 'content', 'usage'])
+2025-11-11 09:44:02,795 - INFO - Contenuto estratto (tipo: <class 'str'>, lunghezza: 2220)
+2025-11-11 09:44:02,796 - INFO - ✓ Draft salvato: email/draft_email.md
+2025-11-11 09:44:02,796 - INFO - ✓ Draft salvato: email/draft_email.md
+2025-11-11 09:44:02,796 - INFO - === Agent workflow completato con successo ===
+2025-11-11 09:50:38,804 - INFO - Database connesso: data/ga4_data.db
+2025-11-11 09:50:38,807 - INFO - Connessione database chiusa
+2025-11-11 09:50:38,807 - INFO - ✓ Database contiene 369 record
+2025-11-11 09:50:38,807 - INFO -    Periodo: 2024-11-06 → 2025-11-09
+2025-11-11 09:50:38,807 - INFO - === Inizio esecuzione agent workflow ===
+2025-11-11 09:50:38,807 - INFO - ✓ Directory configurate
+2025-11-11 09:50:38,808 - INFO - ✓ Agente creato (model: claude-sonnet-4-5-20250929)
+2025-11-11 09:50:38,808 - INFO - Task prompt: INSTRUCTIONS: Se in Senior Digital Analyst, hai accesso hai dati di GA4 e lavori come consulente per...
+2025-11-11 09:50:42,410 - INFO - HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2025-11-11 09:50:42,433 - INFO - Database connesso: data/ga4_data.db
+2025-11-11 09:50:42,435 - INFO - Redis connesso: localhost:6379 (db=1)
+2025-11-11 09:50:42,440 - INFO - Database connesso: data/ga4_data.db
+2025-11-11 09:50:42,441 - INFO - Redis connesso: localhost:6379 (db=1)
+2025-11-11 09:50:42,442 - INFO - Connessione database chiusa
+2025-11-11 09:50:42,442 - INFO - Connessione Redis chiusa
+2025-11-11 09:50:47,471 - INFO - HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2025-11-11 09:50:47,518 - INFO - Database connesso: data/ga4_data.db
+2025-11-11 09:50:47,520 - INFO - Redis connesso: localhost:6379 (db=1)
+2025-11-11 09:50:47,523 - INFO - Database connesso: data/ga4_data.db
+2025-11-11 09:50:47,524 - INFO - Redis connesso: localhost:6379 (db=1)
+2025-11-11 09:50:50,860 - INFO - HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2025-11-11 09:50:50,878 - INFO - Database connesso: data/ga4_data.db
+2025-11-11 09:50:50,879 - INFO - Redis connesso: localhost:6379 (db=1)
+2025-11-11 09:50:50,882 - INFO - Connessione database chiusa
+2025-11-11 09:50:50,882 - INFO - Connessione Redis chiusa
+2025-11-11 09:50:50,887 - INFO - Database connesso: data/ga4_data.db
+2025-11-11 09:50:50,889 - INFO - Redis connesso: localhost:6379 (db=1)
+2025-11-11 09:50:50,889 - INFO - Connessione database chiusa
+2025-11-11 09:50:50,889 - INFO - Connessione Redis chiusa
+2025-11-11 09:50:50,895 - INFO - Database connesso: data/ga4_data.db
+2025-11-11 09:50:50,896 - INFO - Redis connesso: localhost:6379 (db=1)
+2025-11-11 09:50:50,897 - INFO - Connessione database chiusa
+2025-11-11 09:50:50,897 - INFO - Connessione Redis chiusa
+2025-11-11 09:54:04,947 - INFO - Inizio estrazione dati GA4 per ieri...
+2025-11-11 09:54:04,948 - INFO - ======================================================================
+2025-11-11 09:54:04,948 - INFO - INIZIO ESTRAZIONE GIORNALIERA - Tipo: ieri
+2025-11-11 09:54:04,948 - INFO - ======================================================================
+2025-11-11 09:54:06,387 - INFO - Esecuzione: giornaliero_startfunnel
+2025-11-11 09:54:08,278 - INFO - Visualizzazioni step 1 funnel: 823.0
+2025-11-11 09:54:08,279 - INFO - Esecuzione: giornaliero_cr_canalizzazione
+2025-11-11 09:54:08,279 - INFO - Conversioni: 252, Start funnel: 823.0
+2025-11-11 09:54:08,283 - INFO - CR canalizzazione: 30.62%
+2025-11-11 09:54:08,283 - INFO - Esecuzione: giornaliero_prodotti
+2025-11-11 09:54:09,153 - INFO - Prodotti analizzati: 4
+2025-11-11 09:54:09,154 - INFO - ======================================================================
+2025-11-11 09:54:09,154 - INFO - ESTRAZIONE COMPLETATA
+2025-11-11 09:54:09,154 - INFO - ======================================================================
+2025-11-11 09:54:09,154 - INFO - ✓ Estrazione GA4 completata
+2025-11-11 09:54:09,157 - INFO - Database connesso: data/ga4_data.db
+2025-11-11 09:54:09,159 - INFO - Redis connesso: localhost:6379 (db=1)
+2025-11-11 09:54:09,164 - INFO - Metriche salvate per data: 2025-11-10
+2025-11-11 09:54:09,164 - INFO - ✓ Metriche salvate in SQLite per 2025-11-10
+2025-11-11 09:54:09,202 - INFO - Prodotti salvati per data 2025-11-10: 4 prodotti
+2025-11-11 09:54:09,202 - INFO - ✓ Prodotti salvati in SQLite per 2025-11-10: 4 prodotti
+2025-11-11 09:54:09,231 - INFO - ✓ Metriche cached in Redis per 2025-11-10
+2025-11-11 09:54:09,232 - INFO - Connessione database chiusa
+2025-11-11 09:54:09,232 - INFO - Connessione Redis chiusa
+2025-11-11 09:54:09,232 - INFO - ✓ Dati salvati in database per 2025-11-10
+2025-11-11 09:54:09,233 - INFO - === Inizio esecuzione agent workflow ===
+2025-11-11 09:54:09,233 - INFO - ✓ Directory configurate
+2025-11-11 09:54:09,235 - INFO - ✓ Agente creato (model: claude-sonnet-4-5-20250929)
+2025-11-11 09:54:09,235 - INFO - Task prompt: INSTRUCTIONS: Se in Senior Digital Analyst, hai accesso hai dati di GA4 e lavori come consulente per...
+2025-11-11 09:54:13,351 - INFO - HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2025-11-11 09:54:13,366 - INFO - Database connesso: data/ga4_data.db
+2025-11-11 09:54:13,368 - INFO - Redis connesso: localhost:6379 (db=1)
+2025-11-11 09:54:13,368 - INFO - Connessione database chiusa
+2025-11-11 09:54:13,368 - INFO - Connessione Redis chiusa
+2025-11-11 09:54:13,370 - INFO - Task completato con successo
+2025-11-11 09:54:13,371 - INFO - Tipo risultato: <class 'datapizza.agents.agent.StepResult'>
+2025-11-11 09:54:13,371 - INFO - Attributi disponibili: ['__class__', '__delattr__', '__dict__', '__dir__', '__doc__', '__eq__', '__format__', '__ge__', '__getattribute__', '__getstate__', '__gt__', '__hash__', '__init__', '__init_subclass__', '__le__', '__lt__', '__module__', '__ne__', '__new__', '__reduce__', '__reduce_ex__', '__repr__', '__setattr__', '__sizeof__', '__str__', '__subclasshook__', '__weakref__', 'content', 'index', 'text', 'tools_used', 'usage']
+2025-11-11 09:54:13,371 - INFO - __dict__: dict_keys(['index', 'content', 'usage'])
+2025-11-11 09:54:13,371 - WARNING - Estrazione standard fallita, provo metodi alternativi
+2025-11-11 09:54:13,371 - ERROR - Contenuto estratto troppo corto o vuoto: 'Procedo immediatamente con l'estrazione dei dati per generare l'email completa.'
+2025-11-11 09:54:13,371 - ERROR - Tipo risultato: <class 'datapizza.agents.agent.StepResult'>
+2025-11-11 09:57:01,300 - INFO - Inizio estrazione dati GA4 per ieri...
+2025-11-11 09:57:01,301 - INFO - ======================================================================
+2025-11-11 09:57:01,301 - INFO - INIZIO ESTRAZIONE GIORNALIERA - Tipo: ieri
+2025-11-11 09:57:01,301 - INFO - ======================================================================
+2025-11-11 09:57:03,133 - INFO - Esecuzione: giornaliero_startfunnel
+2025-11-11 09:57:03,323 - INFO - Visualizzazioni step 1 funnel: 823.0
+2025-11-11 09:57:03,323 - INFO - Esecuzione: giornaliero_cr_canalizzazione
+2025-11-11 09:57:03,323 - INFO - Conversioni: 252, Start funnel: 823.0
+2025-11-11 09:57:03,326 - INFO - CR canalizzazione: 30.62%
+2025-11-11 09:57:03,326 - INFO - Esecuzione: giornaliero_prodotti
+2025-11-11 09:57:03,963 - INFO - Prodotti analizzati: 4
+2025-11-11 09:57:03,963 - INFO - ======================================================================
+2025-11-11 09:57:03,964 - INFO - ESTRAZIONE COMPLETATA
+2025-11-11 09:57:03,964 - INFO - ======================================================================
+2025-11-11 09:57:03,964 - INFO - ✓ Estrazione GA4 completata
+2025-11-11 09:57:03,966 - INFO - Database connesso: data/ga4_data.db
+2025-11-11 09:57:03,969 - INFO - Redis connesso: localhost:6379 (db=1)
+2025-11-11 09:57:03,974 - INFO - Metriche salvate per data: 2025-11-10
+2025-11-11 09:57:03,974 - INFO - ✓ Metriche salvate in SQLite per 2025-11-10
+2025-11-11 09:57:03,976 - INFO - Prodotti salvati per data 2025-11-10: 4 prodotti
+2025-11-11 09:57:03,976 - INFO - ✓ Prodotti salvati in SQLite per 2025-11-10: 4 prodotti
+2025-11-11 09:57:03,976 - INFO - ✓ Metriche cached in Redis per 2025-11-10
+2025-11-11 09:57:03,976 - INFO - Connessione database chiusa
+2025-11-11 09:57:03,976 - INFO - Connessione Redis chiusa
+2025-11-11 09:57:03,976 - INFO - ✓ Dati salvati in database per 2025-11-10
+2025-11-11 09:57:03,976 - INFO - === Inizio esecuzione agent workflow ===
+2025-11-11 09:57:03,976 - INFO - ✓ Directory configurate
+2025-11-11 09:57:03,977 - INFO - ✓ Agente creato (model: claude-sonnet-4-5-20250929)
+2025-11-11 09:57:03,977 - INFO - Task prompt: TASK CRITICO: Devi GENERARE L'EMAIL COMPLETA ADESSO. Non limitarti a confermare che lo farai.
+STEP 1...
+2025-11-11 09:57:07,236 - INFO - HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2025-11-11 09:57:07,262 - INFO - Database connesso: data/ga4_data.db
+2025-11-11 09:57:07,263 - INFO - Redis connesso: localhost:6379 (db=1)
+2025-11-11 09:57:07,264 - INFO - Connessione database chiusa
+2025-11-11 09:57:07,264 - INFO - Connessione Redis chiusa
+2025-11-11 09:57:11,103 - INFO - HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2025-11-11 09:57:11,131 - INFO - Database connesso: data/ga4_data.db
+2025-11-11 09:57:11,133 - INFO - Redis connesso: localhost:6379 (db=1)
+2025-11-11 09:57:11,133 - INFO - Connessione database chiusa
+2025-11-11 09:57:11,133 - INFO - Connessione Redis chiusa
+2025-11-11 09:57:21,352 - INFO - HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2025-11-11 09:57:21,356 - INFO - Task completato con successo
+2025-11-11 09:57:21,356 - INFO - Tipo risultato: <class 'datapizza.agents.agent.StepResult'>
+2025-11-11 09:57:21,356 - INFO - Attributi disponibili: ['__class__', '__delattr__', '__dict__', '__dir__', '__doc__', '__eq__', '__format__', '__ge__', '__getattribute__', '__getstate__', '__gt__', '__hash__', '__init__', '__init_subclass__', '__le__', '__lt__', '__module__', '__ne__', '__new__', '__reduce__', '__reduce_ex__', '__repr__', '__setattr__', '__sizeof__', '__str__', '__subclasshook__', '__weakref__', 'content', 'index', 'text', 'tools_used', 'usage']
+2025-11-11 09:57:21,357 - INFO - __dict__: dict_keys(['index', 'content', 'usage'])
+2025-11-11 09:57:21,357 - INFO - Contenuto estratto (tipo: <class 'str'>, lunghezza: 1502)
+2025-11-11 09:57:21,359 - INFO - ✓ Draft salvato: email/draft_email.md
+2025-11-11 09:57:21,359 - INFO - ✓ Draft salvato: email/draft_email.md
+2025-11-11 09:57:21,359 - INFO - === Agent workflow completato con successo ===
+2025-11-11 11:10:01,274 - INFO - Refresh token in corso...
+2025-11-11 11:10:01,709 - INFO - Inizio estrazione dati GA4 per ieri...
+2025-11-11 11:10:01,709 - INFO - ======================================================================
+2025-11-11 11:10:01,709 - INFO - INIZIO ESTRAZIONE GIORNALIERA - Tipo: ieri
+2025-11-11 11:10:01,709 - INFO - ======================================================================
+2025-11-11 11:10:03,958 - INFO - Esecuzione: giornaliero_startfunnel
+2025-11-11 11:10:05,525 - INFO - Visualizzazioni step 1 funnel: 823.0
+2025-11-11 11:10:05,525 - INFO - Esecuzione: giornaliero_cr_canalizzazione
+2025-11-11 11:10:05,525 - INFO - Conversioni: 252, Start funnel: 823.0
+2025-11-11 11:10:05,527 - INFO - CR canalizzazione: 30.62%
+2025-11-11 11:10:05,527 - INFO - Esecuzione: giornaliero_prodotti
+2025-11-11 11:10:06,247 - INFO - Prodotti analizzati: 4
+2025-11-11 11:10:06,247 - INFO - ======================================================================
+2025-11-11 11:10:06,247 - INFO - ESTRAZIONE COMPLETATA
+2025-11-11 11:10:06,247 - INFO - ======================================================================
+2025-11-11 11:10:06,248 - INFO - ✓ Estrazione GA4 completata
+2025-11-11 11:10:06,248 - INFO - Database connesso: data/ga4_data.db
+2025-11-11 11:10:06,253 - INFO - Redis connesso: localhost:6379 (db=1)
+2025-11-11 11:10:06,256 - INFO - Metriche salvate per data: 2025-11-10
+2025-11-11 11:10:06,256 - INFO - ✓ Metriche salvate in SQLite per 2025-11-10
+2025-11-11 11:10:06,259 - INFO - Prodotti salvati per data 2025-11-10: 4 prodotti
+2025-11-11 11:10:06,259 - INFO - ✓ Prodotti salvati in SQLite per 2025-11-10: 4 prodotti
+2025-11-11 11:10:06,261 - INFO - ✓ Metriche cached in Redis per 2025-11-10
+2025-11-11 11:10:06,261 - INFO - Connessione database chiusa
+2025-11-11 11:10:06,261 - INFO - Connessione Redis chiusa
+2025-11-11 11:10:06,261 - INFO - ✓ Dati salvati in database per 2025-11-10
+2025-11-11 11:10:06,261 - INFO - === Inizio esecuzione agent workflow ===
+2025-11-11 11:10:06,261 - INFO - ✓ Directory configurate
+2025-11-11 11:10:06,262 - INFO - ✓ Agente creato (model: claude-sonnet-4-5-20250929)
+2025-11-11 11:10:06,262 - INFO - Task prompt: GENERA L'EMAIL COMPLETA DEL REPORT GIORNALIERO GA4.
+ISTRUZIONI:
+1. ACQUISISCI I DATI:
+   - Usa get_m...
+2025-11-11 11:10:09,487 - INFO - HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2025-11-11 11:10:09,507 - INFO - Database connesso: data/ga4_data.db
+2025-11-11 11:10:09,509 - INFO - Redis connesso: localhost:6379 (db=1)
+2025-11-11 11:10:09,510 - INFO - Connessione database chiusa
+2025-11-11 11:10:09,510 - INFO - Connessione Redis chiusa
+2025-11-11 11:10:12,498 - INFO - HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2025-11-11 11:10:12,507 - INFO - Database connesso: data/ga4_data.db
+2025-11-11 11:10:12,508 - INFO - Redis connesso: localhost:6379 (db=1)
+2025-11-11 11:10:12,509 - INFO - Connessione database chiusa
+2025-11-11 11:10:12,509 - INFO - Connessione Redis chiusa
+2025-11-11 11:10:13,383 - INFO - Inizio estrazione dati GA4 per ieri...
+2025-11-11 11:10:13,384 - INFO - ======================================================================
+2025-11-11 11:10:13,384 - INFO - INIZIO ESTRAZIONE GIORNALIERA - Tipo: ieri
+2025-11-11 11:10:13,384 - INFO - ======================================================================
+2025-11-11 11:10:14,474 - INFO - Esecuzione: giornaliero_startfunnel
+2025-11-11 11:10:14,667 - INFO - Visualizzazioni step 1 funnel: 823.0
+2025-11-11 11:10:14,667 - INFO - Esecuzione: giornaliero_cr_canalizzazione
+2025-11-11 11:10:14,667 - INFO - Conversioni: 252, Start funnel: 823.0
+2025-11-11 11:10:14,668 - INFO - CR canalizzazione: 30.62%
+2025-11-11 11:10:14,669 - INFO - Esecuzione: giornaliero_prodotti
+2025-11-11 11:10:14,871 - INFO - Prodotti analizzati: 4
+2025-11-11 11:10:14,871 - INFO - ======================================================================
+2025-11-11 11:10:14,871 - INFO - ESTRAZIONE COMPLETATA
+2025-11-11 11:10:14,871 - INFO - ======================================================================
+2025-11-11 11:10:14,871 - INFO - ✓ Estrazione GA4 completata
+2025-11-11 11:10:14,871 - INFO - Database connesso: data/ga4_data.db
+2025-11-11 11:10:14,874 - INFO - Redis connesso: localhost:6379 (db=1)
+2025-11-11 11:10:14,875 - INFO - Metriche salvate per data: 2025-11-10
+2025-11-11 11:10:14,876 - INFO - ✓ Metriche salvate in SQLite per 2025-11-10
+2025-11-11 11:10:14,877 - INFO - Prodotti salvati per data 2025-11-10: 4 prodotti
+2025-11-11 11:10:14,877 - INFO - ✓ Prodotti salvati in SQLite per 2025-11-10: 4 prodotti
+2025-11-11 11:10:14,878 - INFO - ✓ Metriche cached in Redis per 2025-11-10
+2025-11-11 11:10:14,878 - INFO - Connessione database chiusa
+2025-11-11 11:10:14,878 - INFO - Connessione Redis chiusa
+2025-11-11 11:10:14,878 - INFO - ✓ Dati salvati in database per 2025-11-10
+2025-11-11 11:10:14,878 - INFO - === Inizio esecuzione agent workflow ===
+2025-11-11 11:10:14,878 - INFO - ✓ Directory configurate
+2025-11-11 11:10:14,879 - INFO - ✓ Agente creato (model: claude-sonnet-4-5-20250929)
+2025-11-11 11:10:14,879 - INFO - Task prompt: GENERA L'EMAIL COMPLETA DEL REPORT GIORNALIERO GA4.
+ISTRUZIONI:
+1. ACQUISISCI I DATI:
+   - Usa get_m...
+2025-11-11 11:10:16,236 - INFO - HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2025-11-11 11:10:16,241 - INFO - Database connesso: data/ga4_data.db
+2025-11-11 11:10:16,242 - INFO - Redis connesso: localhost:6379 (db=1)
+2025-11-11 11:10:16,243 - INFO - Connessione database chiusa
+2025-11-11 11:10:16,243 - INFO - Connessione Redis chiusa
+2025-11-11 11:10:16,245 - INFO - Task completato con successo
+2025-11-11 11:10:16,245 - INFO - Tipo risultato: <class 'datapizza.agents.agent.StepResult'>
+2025-11-11 11:10:16,246 - INFO - Attributi disponibili: ['__class__', '__delattr__', '__dict__', '__dir__', '__doc__', '__eq__', '__format__', '__ge__', '__getattribute__', '__getstate__', '__gt__', '__hash__', '__init__', '__init_subclass__', '__le__', '__lt__', '__module__', '__ne__', '__new__', '__reduce__', '__reduce_ex__', '__repr__', '__setattr__', '__sizeof__', '__str__', '__subclasshook__', '__weakref__', 'content', 'index', 'text', 'tools_used', 'usage']
+2025-11-11 11:10:16,246 - INFO - __dict__: dict_keys(['index', 'content', 'usage'])
+2025-11-11 11:10:16,246 - INFO - Contenuto estratto (tipo: <class 'str'>, lunghezza: 140)
+2025-11-11 11:10:16,246 - INFO - ✓ Draft salvato: email/draft_email.md
+2025-11-11 11:10:16,246 - INFO - ✓ Draft salvato: email/draft_email.md
+2025-11-11 11:10:16,246 - INFO - === Agent workflow completato con successo ===
+2025-11-11 11:10:18,211 - INFO - HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2025-11-11 11:10:18,226 - INFO - Database connesso: data/ga4_data.db
+2025-11-11 11:10:18,227 - INFO - Redis connesso: localhost:6379 (db=1)
+2025-11-11 11:10:18,228 - INFO - Connessione database chiusa
+2025-11-11 11:10:18,228 - INFO - Connessione Redis chiusa
+2025-11-11 11:10:21,178 - INFO - HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2025-11-11 11:10:21,219 - INFO - Database connesso: data/ga4_data.db
+2025-11-11 11:10:21,220 - INFO - Redis connesso: localhost:6379 (db=1)
+2025-11-11 11:10:21,222 - INFO - Connessione database chiusa
+2025-11-11 11:10:21,222 - INFO - Connessione Redis chiusa
+2025-11-11 11:10:36,741 - INFO - HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2025-11-11 11:10:36,746 - INFO - Task completato con successo
+2025-11-11 11:10:36,746 - INFO - Tipo risultato: <class 'datapizza.agents.agent.StepResult'>
+2025-11-11 11:10:36,746 - INFO - Attributi disponibili: ['__class__', '__delattr__', '__dict__', '__dir__', '__doc__', '__eq__', '__format__', '__ge__', '__getattribute__', '__getstate__', '__gt__', '__hash__', '__init__', '__init_subclass__', '__le__', '__lt__', '__module__', '__ne__', '__new__', '__reduce__', '__reduce_ex__', '__repr__', '__setattr__', '__sizeof__', '__str__', '__subclasshook__', '__weakref__', 'content', 'index', 'text', 'tools_used', 'usage']
+2025-11-11 11:10:36,746 - INFO - __dict__: dict_keys(['index', 'content', 'usage'])
+2025-11-11 11:10:36,747 - INFO - Contenuto estratto (tipo: <class 'str'>, lunghezza: 2384)
+2025-11-11 11:10:36,747 - INFO - ✓ Draft salvato: email/draft_email.md
+2025-11-11 11:10:36,747 - INFO - ✓ Draft salvato: email/draft_email.md
+2025-11-11 11:10:36,747 - INFO - === Agent workflow completato con successo ===
+2025-11-11 11:11:29,509 - INFO - Inizio estrazione dati GA4 per ieri...
+2025-11-11 11:11:29,509 - INFO - ======================================================================
+2025-11-11 11:11:29,509 - INFO - INIZIO ESTRAZIONE GIORNALIERA - Tipo: ieri
+2025-11-11 11:11:29,509 - INFO - ======================================================================
+2025-11-11 11:11:30,684 - INFO - Esecuzione: giornaliero_startfunnel
+2025-11-11 11:11:31,303 - INFO - Visualizzazioni step 1 funnel: 823.0
+2025-11-11 11:11:31,303 - INFO - Esecuzione: giornaliero_cr_canalizzazione
+2025-11-11 11:11:31,303 - INFO - Conversioni: 252, Start funnel: 823.0
+2025-11-11 11:11:31,306 - INFO - CR canalizzazione: 30.62%
+2025-11-11 11:11:31,306 - INFO - Esecuzione: giornaliero_prodotti
+2025-11-11 11:11:31,636 - INFO - Prodotti analizzati: 4
+2025-11-11 11:11:31,636 - INFO - ======================================================================
+2025-11-11 11:11:31,636 - INFO - ESTRAZIONE COMPLETATA
+2025-11-11 11:11:31,636 - INFO - ======================================================================
+2025-11-11 11:11:31,636 - INFO - ✓ Estrazione GA4 completata
+2025-11-11 11:11:31,637 - INFO - Database connesso: data/ga4_data.db
+2025-11-11 11:11:31,640 - INFO - Redis connesso: localhost:6379 (db=1)
+2025-11-11 11:11:31,643 - INFO - Metriche salvate per data: 2025-11-10
+2025-11-11 11:11:31,643 - INFO - ✓ Metriche salvate in SQLite per 2025-11-10
+2025-11-11 11:11:31,646 - INFO - Prodotti salvati per data 2025-11-10: 4 prodotti
+2025-11-11 11:11:31,646 - INFO - ✓ Prodotti salvati in SQLite per 2025-11-10: 4 prodotti
+2025-11-11 11:11:31,646 - INFO - ✓ Metriche cached in Redis per 2025-11-10
+2025-11-11 11:11:31,646 - INFO - Connessione database chiusa
+2025-11-11 11:11:31,646 - INFO - Connessione Redis chiusa
+2025-11-11 11:11:31,646 - INFO - ✓ Dati salvati in database per 2025-11-10
+2025-11-11 11:11:31,646 - INFO - === Inizio esecuzione agent workflow ===
+2025-11-11 11:11:31,646 - INFO - ✓ Directory configurate
+2025-11-11 11:11:31,647 - INFO - ✓ Agente creato (model: claude-sonnet-4-5-20250929)
+2025-11-11 11:11:31,647 - INFO - Task prompt: GENERA L'EMAIL COMPLETA DEL REPORT GIORNALIERO GA4.
+ISTRUZIONI:
+1. ACQUISISCI I DATI:
+   - Usa get_m...
+2025-11-11 11:11:34,718 - INFO - HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2025-11-11 11:11:34,738 - INFO - Database connesso: data/ga4_data.db
+2025-11-11 11:11:34,739 - INFO - Redis connesso: localhost:6379 (db=1)
+2025-11-11 11:11:34,740 - INFO - Connessione database chiusa
+2025-11-11 11:11:34,740 - INFO - Connessione Redis chiusa
+2025-11-11 11:11:37,285 - INFO - HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2025-11-11 11:11:37,308 - INFO - Database connesso: data/ga4_data.db
+2025-11-11 11:11:37,309 - INFO - Redis connesso: localhost:6379 (db=1)
+2025-11-11 11:11:37,310 - INFO - Connessione database chiusa
+2025-11-11 11:11:37,310 - INFO - Connessione Redis chiusa
+2025-11-11 11:11:48,918 - INFO - HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2025-11-11 11:11:48,939 - INFO - Task completato con successo
+2025-11-11 11:11:48,939 - INFO - Tipo risultato: <class 'datapizza.agents.agent.StepResult'>
+2025-11-11 11:11:48,940 - INFO - Attributi disponibili: ['__class__', '__delattr__', '__dict__', '__dir__', '__doc__', '__eq__', '__format__', '__ge__', '__getattribute__', '__getstate__', '__gt__', '__hash__', '__init__', '__init_subclass__', '__le__', '__lt__', '__module__', '__ne__', '__new__', '__reduce__', '__reduce_ex__', '__repr__', '__setattr__', '__sizeof__', '__str__', '__subclasshook__', '__weakref__', 'content', 'index', 'text', 'tools_used', 'usage']
+2025-11-11 11:11:48,940 - INFO - __dict__: dict_keys(['index', 'content', 'usage'])
+2025-11-11 11:11:48,940 - INFO - Contenuto estratto (tipo: <class 'str'>, lunghezza: 1618)
+2025-11-11 11:11:48,942 - INFO - ✓ Draft salvato: email/draft_email.md
+2025-11-11 11:11:48,942 - INFO - ✓ Draft salvato: email/draft_email.md
+2025-11-11 11:11:48,942 - INFO - === Agent workflow completato con successo ===
+2025-11-11 11:13:34,042 - INFO - Inizio estrazione dati GA4 per ieri...
+2025-11-11 11:13:34,042 - INFO - ======================================================================
+2025-11-11 11:13:34,042 - INFO - INIZIO ESTRAZIONE GIORNALIERA - Tipo: ieri
+2025-11-11 11:13:34,042 - INFO - ======================================================================
+2025-11-11 11:13:34,978 - INFO - Esecuzione: giornaliero_startfunnel
+2025-11-11 11:13:35,612 - INFO - Visualizzazioni step 1 funnel: 823.0
+2025-11-11 11:13:35,612 - INFO - Esecuzione: giornaliero_cr_canalizzazione
+2025-11-11 11:13:35,612 - INFO - Conversioni: 252, Start funnel: 823.0
+2025-11-11 11:13:35,615 - INFO - CR canalizzazione: 30.62%
+2025-11-11 11:13:35,615 - INFO - Esecuzione: giornaliero_prodotti
+2025-11-11 11:13:35,813 - INFO - Prodotti analizzati: 4
+2025-11-11 11:13:35,813 - INFO - ======================================================================
+2025-11-11 11:13:35,813 - INFO - ESTRAZIONE COMPLETATA
+2025-11-11 11:13:35,813 - INFO - ======================================================================
+2025-11-11 11:13:35,813 - INFO - ✓ Estrazione GA4 completata
+2025-11-11 11:13:35,815 - INFO - Database connesso: data/ga4_data.db
+2025-11-11 11:13:35,817 - INFO - Redis connesso: localhost:6379 (db=1)
+2025-11-11 11:13:35,820 - INFO - Metriche salvate per data: 2025-11-10
+2025-11-11 11:13:35,820 - INFO - ✓ Metriche salvate in SQLite per 2025-11-10
+2025-11-11 11:13:35,822 - INFO - Prodotti salvati per data 2025-11-10: 4 prodotti
+2025-11-11 11:13:35,822 - INFO - ✓ Prodotti salvati in SQLite per 2025-11-10: 4 prodotti
+2025-11-11 11:13:35,823 - INFO - ✓ Metriche cached in Redis per 2025-11-10
+2025-11-11 11:13:35,823 - INFO - Connessione database chiusa
+2025-11-11 11:13:35,823 - INFO - Connessione Redis chiusa
+2025-11-11 11:13:35,823 - INFO - ✓ Dati salvati in database per 2025-11-10
+2025-11-11 11:13:35,823 - INFO - === Inizio esecuzione agent workflow ===
+2025-11-11 11:13:35,823 - INFO - ✓ Directory configurate
+2025-11-11 11:13:35,824 - INFO - ✓ Agente creato (model: claude-sonnet-4-5-20250929)
+2025-11-11 11:13:35,824 - INFO - Task prompt: GENERA L'EMAIL COMPLETA DEL REPORT GIORNALIERO GA4.
+ISTRUZIONI:
+1. ACQUISISCI I DATI:
+   - Usa get_m...
+2025-11-11 11:13:38,626 - INFO - HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2025-11-11 11:13:38,656 - INFO - Database connesso: data/ga4_data.db
+2025-11-11 11:13:38,658 - INFO - Redis connesso: localhost:6379 (db=1)
+2025-11-11 11:13:38,658 - ERROR - Errore nella generazione del summary: name 'target_date' is not defined
+Traceback (most recent call last):
+  File "/Users/giacomomauri/Desktop/Automation/daily_report/agent/tools.py", line 182, in get_metrics_summary
+    giorno_nome = giorni_settimana[target_date.weekday()]
+                                   ^^^^^^^^^^^
+NameError: name 'target_date' is not defined. Did you mean: 'target_date_str'?
+2025-11-11 11:13:41,609 - INFO - HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2025-11-11 11:13:41,632 - INFO - Database connesso: data/ga4_data.db
+2025-11-11 11:13:41,634 - INFO - Redis connesso: localhost:6379 (db=1)
+2025-11-11 11:13:45,124 - INFO - HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2025-11-11 11:13:45,133 - INFO - Database connesso: data/ga4_data.db
+2025-11-11 11:13:45,134 - INFO - Redis connesso: localhost:6379 (db=1)
+2025-11-11 11:13:45,135 - INFO - Connessione database chiusa
+2025-11-11 11:13:45,135 - INFO - Connessione Redis chiusa
+2025-11-11 11:13:45,137 - INFO - Task completato con successo
+2025-11-11 11:13:45,137 - INFO - Tipo risultato: <class 'datapizza.agents.agent.StepResult'>
+2025-11-11 11:13:45,137 - INFO - Attributi disponibili: ['__class__', '__delattr__', '__dict__', '__dir__', '__doc__', '__eq__', '__format__', '__ge__', '__getattribute__', '__getstate__', '__gt__', '__hash__', '__init__', '__init_subclass__', '__le__', '__lt__', '__module__', '__ne__', '__new__', '__reduce__', '__reduce_ex__', '__repr__', '__setattr__', '__sizeof__', '__str__', '__subclasshook__', '__weakref__', 'content', 'index', 'text', 'tools_used', 'usage']
+2025-11-11 11:13:45,137 - INFO - __dict__: dict_keys(['index', 'content', 'usage'])
+2025-11-11 11:13:45,137 - INFO - Contenuto estratto (tipo: <class 'str'>, lunghezza: 103)
+2025-11-11 11:13:45,139 - INFO - ✓ Draft salvato: email/draft_email.md
+2025-11-11 11:13:45,139 - INFO - ✓ Draft salvato: email/draft_email.md
+2025-11-11 11:13:45,139 - INFO - === Agent workflow completato con successo ===
+2025-11-11 11:14:19,255 - INFO - Inizio estrazione dati GA4 per ieri...
+2025-11-11 11:14:19,256 - INFO - ======================================================================
+2025-11-11 11:14:19,256 - INFO - INIZIO ESTRAZIONE GIORNALIERA - Tipo: ieri
+2025-11-11 11:14:19,256 - INFO - ======================================================================
+2025-11-11 11:14:21,384 - INFO - Esecuzione: giornaliero_startfunnel
+2025-11-11 11:14:22,042 - INFO - Visualizzazioni step 1 funnel: 823.0
+2025-11-11 11:14:22,043 - INFO - Esecuzione: giornaliero_cr_canalizzazione
+2025-11-11 11:14:22,043 - INFO - Conversioni: 252, Start funnel: 823.0
+2025-11-11 11:14:22,045 - INFO - CR canalizzazione: 30.62%
+2025-11-11 11:14:22,045 - INFO - Esecuzione: giornaliero_prodotti
+2025-11-11 11:14:22,718 - INFO - Prodotti analizzati: 4
+2025-11-11 11:14:22,718 - INFO - ======================================================================
+2025-11-11 11:14:22,718 - INFO - ESTRAZIONE COMPLETATA
+2025-11-11 11:14:22,719 - INFO - ======================================================================
+2025-11-11 11:14:22,719 - INFO - ✓ Estrazione GA4 completata
+2025-11-11 11:14:22,720 - INFO - Database connesso: data/ga4_data.db
+2025-11-11 11:14:22,722 - INFO - Redis connesso: localhost:6379 (db=1)
+2025-11-11 11:14:22,725 - INFO - Metriche salvate per data: 2025-11-10
+2025-11-11 11:14:22,725 - INFO - ✓ Metriche salvate in SQLite per 2025-11-10
+2025-11-11 11:14:22,726 - INFO - Prodotti salvati per data 2025-11-10: 4 prodotti
+2025-11-11 11:14:22,727 - INFO - ✓ Prodotti salvati in SQLite per 2025-11-10: 4 prodotti
+2025-11-11 11:14:22,727 - INFO - ✓ Metriche cached in Redis per 2025-11-10
+2025-11-11 11:14:22,727 - INFO - Connessione database chiusa
+2025-11-11 11:14:22,727 - INFO - Connessione Redis chiusa
+2025-11-11 11:14:22,727 - INFO - ✓ Dati salvati in database per 2025-11-10
+2025-11-11 11:14:22,727 - INFO - === Inizio esecuzione agent workflow ===
+2025-11-11 11:14:22,727 - INFO - ✓ Directory configurate
+2025-11-11 11:14:22,728 - INFO - ✓ Agente creato (model: claude-sonnet-4-5-20250929)
+2025-11-11 11:14:22,728 - INFO - Task prompt: GENERA L'EMAIL COMPLETA DEL REPORT GIORNALIERO GA4.
+ISTRUZIONI:
+1. ACQUISISCI I DATI:
+   - Usa get_m...
+2025-11-11 11:14:25,686 - INFO - HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2025-11-11 11:14:25,705 - INFO - Database connesso: data/ga4_data.db
+2025-11-11 11:14:25,706 - INFO - Redis connesso: localhost:6379 (db=1)
+2025-11-11 11:14:25,707 - INFO - Connessione database chiusa
+2025-11-11 11:14:25,707 - INFO - Connessione Redis chiusa
+2025-11-11 11:14:28,755 - INFO - HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2025-11-11 11:14:28,778 - INFO - Database connesso: data/ga4_data.db
+2025-11-11 11:14:28,779 - INFO - Redis connesso: localhost:6379 (db=1)
+2025-11-11 11:14:28,779 - INFO - Connessione database chiusa
+2025-11-11 11:14:28,779 - INFO - Connessione Redis chiusa
+2025-11-11 11:14:39,099 - INFO - HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2025-11-11 11:14:39,105 - INFO - Task completato con successo
+2025-11-11 11:14:39,106 - INFO - Tipo risultato: <class 'datapizza.agents.agent.StepResult'>
+2025-11-11 11:14:39,106 - INFO - Attributi disponibili: ['__class__', '__delattr__', '__dict__', '__dir__', '__doc__', '__eq__', '__format__', '__ge__', '__getattribute__', '__getstate__', '__gt__', '__hash__', '__init__', '__init_subclass__', '__le__', '__lt__', '__module__', '__ne__', '__new__', '__reduce__', '__reduce_ex__', '__repr__', '__setattr__', '__sizeof__', '__str__', '__subclasshook__', '__weakref__', 'content', 'index', 'text', 'tools_used', 'usage']
+2025-11-11 11:14:39,106 - INFO - __dict__: dict_keys(['index', 'content', 'usage'])
+2025-11-11 11:14:39,106 - INFO - Contenuto estratto (tipo: <class 'str'>, lunghezza: 1429)
+2025-11-11 11:14:39,108 - INFO - ✓ Draft salvato: email/draft_email.md
+2025-11-11 11:14:39,108 - INFO - ✓ Draft salvato: email/draft_email.md
+2025-11-11 11:14:39,108 - INFO - === Agent workflow completato con successo ===
+2025-11-11 11:23:51,303 - INFO - Inizio estrazione dati GA4 per ieri...
+2025-11-11 11:23:51,304 - INFO - Creazione database: data/ga4_data.db
+2025-11-11 11:23:51,305 - INFO - Database connesso: data/ga4_data.db
+2025-11-11 11:23:51,306 - INFO - Schema database creato con successo
+2025-11-11 11:23:51,308 - INFO - Redis connesso: localhost:6379 (db=1)
+2025-11-11 11:23:51,308 - INFO - ✓ Redis cache connessa
+2025-11-11 11:23:51,308 - INFO - GA4DataService inizializzato
+2025-11-11 11:23:51,309 - INFO - ✓ Dati già presenti per 2025-11-10, skip estrazione
+2025-11-11 11:23:51,309 - INFO - ✓ Dati disponibili per 2025-11-10
+2025-11-11 11:23:51,309 - INFO - Connessione database chiusa
+2025-11-11 11:23:51,309 - INFO - Connessione Redis chiusa
+2025-11-11 11:23:51,309 - INFO - GA4DataService chiuso
+2025-11-11 11:23:51,309 - INFO - === Inizio esecuzione agent workflow ===
+2025-11-11 11:23:51,309 - INFO - ✓ Directory configurate
+2025-11-11 11:23:51,310 - INFO - ✓ Agente creato (model: claude-sonnet-4-5-20250929)
+2025-11-11 11:23:51,310 - INFO - Task prompt: GENERA L'EMAIL COMPLETA DEL REPORT GIORNALIERO GA4.
+ISTRUZIONI:
+1. ACQUISISCI I DATI:
+   - Usa get_m...
+2025-11-11 11:23:54,103 - INFO - HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2025-11-11 11:23:54,133 - INFO - Database connesso: data/ga4_data.db
+2025-11-11 11:23:54,134 - INFO - Redis connesso: localhost:6379 (db=1)
+2025-11-11 11:23:54,136 - INFO - Connessione database chiusa
+2025-11-11 11:23:54,136 - INFO - Connessione Redis chiusa
+2025-11-11 11:23:56,647 - INFO - HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2025-11-11 11:23:56,657 - INFO - Database connesso: data/ga4_data.db
+2025-11-11 11:23:56,658 - INFO - Redis connesso: localhost:6379 (db=1)
+2025-11-11 11:23:56,658 - INFO - Connessione database chiusa
+2025-11-11 11:23:56,658 - INFO - Connessione Redis chiusa
+2025-11-11 11:24:08,694 - INFO - HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2025-11-11 11:24:08,700 - INFO - Task completato con successo
+2025-11-11 11:24:08,700 - INFO - Tipo risultato: <class 'datapizza.agents.agent.StepResult'>
+2025-11-11 11:24:08,700 - INFO - Attributi disponibili: ['__class__', '__delattr__', '__dict__', '__dir__', '__doc__', '__eq__', '__format__', '__ge__', '__getattribute__', '__getstate__', '__gt__', '__hash__', '__init__', '__init_subclass__', '__le__', '__lt__', '__module__', '__ne__', '__new__', '__reduce__', '__reduce_ex__', '__repr__', '__setattr__', '__sizeof__', '__str__', '__subclasshook__', '__weakref__', 'content', 'index', 'text', 'tools_used', 'usage']
+2025-11-11 11:24:08,700 - INFO - __dict__: dict_keys(['index', 'content', 'usage'])
+2025-11-11 11:24:08,700 - INFO - Contenuto estratto (tipo: <class 'str'>, lunghezza: 1571)
+2025-11-11 11:24:08,702 - INFO - ✓ Draft salvato: email/draft_email.md
+2025-11-11 11:24:08,702 - INFO - ✓ Draft salvato: email/draft_email.md
+2025-11-11 11:24:08,702 - INFO - === Agent workflow completato con successo ===
+2025-11-11 11:33:36,014 - INFO - Inizio estrazione dati GA4 per ieri...
+2025-11-11 11:33:36,014 - INFO - Creazione database: data/ga4_data.db
+2025-11-11 11:33:36,015 - INFO - Database connesso: data/ga4_data.db
+2025-11-11 11:33:36,017 - INFO - Schema database creato con successo
+2025-11-11 11:33:36,020 - INFO - Redis connesso: localhost:6379 (db=1)
+2025-11-11 11:33:36,020 - INFO - ✓ Redis cache connessa
+2025-11-11 11:33:36,020 - INFO - GA4DataService inizializzato
+2025-11-11 11:33:36,021 - INFO - ✓ Dati già presenti per 2025-11-10, skip estrazione
+2025-11-11 11:33:36,021 - INFO - ✓ Dati disponibili per 2025-11-10
+2025-11-11 11:33:36,021 - INFO - Connessione database chiusa
+2025-11-11 11:33:36,021 - INFO - Connessione Redis chiusa
+2025-11-11 11:33:36,021 - INFO - GA4DataService chiuso
+2025-11-11 11:33:36,021 - INFO - === Inizio esecuzione agent workflow ===
+2025-11-11 11:33:36,021 - INFO - ✓ Directory configurate
+2025-11-11 11:33:36,022 - INFO - ✓ Agente creato (model: claude-sonnet-4-5-20250929)
+2025-11-11 11:33:36,023 - INFO - Task prompt: GENERA L'EMAIL COMPLETA DEL REPORT GIORNALIERO GA4.
+ISTRUZIONI:
+1. ACQUISISCI I DATI:
+   - Usa get_m...
+2025-11-11 11:33:39,136 - INFO - HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2025-11-11 11:33:39,148 - INFO - Database connesso: data/ga4_data.db
+2025-11-11 11:33:39,150 - INFO - Redis connesso: localhost:6379 (db=1)
+2025-11-11 11:33:39,151 - INFO - Connessione database chiusa
+2025-11-11 11:33:39,151 - INFO - Connessione Redis chiusa
+2025-11-11 11:33:42,098 - INFO - HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2025-11-11 11:33:42,122 - INFO - Database connesso: data/ga4_data.db
+2025-11-11 11:33:42,123 - INFO - Redis connesso: localhost:6379 (db=1)
+2025-11-11 11:33:42,124 - INFO - Connessione database chiusa
+2025-11-11 11:33:42,124 - INFO - Connessione Redis chiusa
+2025-11-11 11:33:44,832 - INFO - HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2025-11-11 11:33:44,841 - INFO - Database connesso: data/ga4_data.db
+2025-11-11 11:33:44,842 - INFO - Redis connesso: localhost:6379 (db=1)
+2025-11-11 11:33:44,843 - INFO - Connessione database chiusa
+2025-11-11 11:33:44,843 - INFO - Connessione Redis chiusa
+2025-11-11 11:33:58,212 - INFO - HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2025-11-11 11:33:58,218 - INFO - Task completato con successo
+2025-11-11 11:33:58,218 - INFO - Tipo risultato: <class 'datapizza.agents.agent.StepResult'>
+2025-11-11 11:33:58,219 - INFO - Attributi disponibili: ['__class__', '__delattr__', '__dict__', '__dir__', '__doc__', '__eq__', '__format__', '__ge__', '__getattribute__', '__getstate__', '__gt__', '__hash__', '__init__', '__init_subclass__', '__le__', '__lt__', '__module__', '__ne__', '__new__', '__reduce__', '__reduce_ex__', '__repr__', '__setattr__', '__sizeof__', '__str__', '__subclasshook__', '__weakref__', 'content', 'index', 'text', 'tools_used', 'usage']
+2025-11-11 11:33:58,219 - INFO - __dict__: dict_keys(['index', 'content', 'usage'])
+2025-11-11 11:33:58,219 - INFO - Contenuto estratto (tipo: <class 'str'>, lunghezza: 2009)
+2025-11-11 11:33:58,220 - INFO - ✓ Draft salvato: email/draft_email.md
+2025-11-11 11:33:58,221 - INFO - ✓ Draft salvato: email/draft_email.md
+2025-11-11 11:33:58,221 - INFO - === Agent workflow completato con successo ===
