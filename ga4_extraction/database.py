@@ -1,128 +1,243 @@
 #!/usr/bin/env python3
 """
-SQLite Database Manager per dati GA4.
+Database Manager per dati GA4.
 
-Gestisce lo storage permanente delle metriche GA4 con schema normalizzato.
-Ogni giorno viene salvato come record unico senza duplicazioni.
+Supporta sia SQLite (sviluppo locale) che PostgreSQL (produzione/staging).
+La scelta del database è automatica basata sulla variabile DATABASE_URL.
 """
 
-import sqlite3
+import os
 import logging
-from datetime import datetime, timedelta, date
-from typing import Dict, List, Optional, Any, Tuple
+from datetime import datetime, timedelta
+from typing import Dict, List, Optional, Any
 from pathlib import Path
-import json
+from urllib.parse import urlparse
+from contextlib import contextmanager
 
 logger = logging.getLogger(__name__)
 
 
-class GA4Database:
-    """Manager per database SQLite delle metriche GA4."""
+# =============================================================================
+# DATABASE FACTORY
+# =============================================================================
+
+def get_database_connection(db_url: Optional[str] = None):
+    """
+    Factory per ottenere connessione database.
     
-    def __init__(self, db_path: str = "data/ga4_data.db"):
-        """
-        Inizializza connessione al database.
+    Args:
+        db_url: URL database (es. postgres://... o sqlite:///path)
+                Se None, usa DATABASE_URL env var o fallback SQLite locale
+    
+    Returns:
+        Connessione database appropriata
+    """
+    url = db_url or os.getenv('DATABASE_URL')
+    
+    if url and url.startswith(('postgres://', 'postgresql://')):
+        # PostgreSQL (Render, Heroku, etc.)
+        import psycopg2
+        from psycopg2.extras import RealDictCursor
         
-        Args:
-            db_path: Percorso file database SQLite
-        """
-        self.db_path = db_path
+        # Render usa postgres:// ma psycopg2 vuole postgresql://
+        if url.startswith('postgres://'):
+            url = url.replace('postgres://', 'postgresql://', 1)
+        
+        conn = psycopg2.connect(url, cursor_factory=RealDictCursor)
+        return conn, 'postgresql'
+    else:
+        # SQLite (sviluppo locale)
+        import sqlite3
+        db_path = url.replace('sqlite:///', '') if url else 'data/ga4_data.db'
         
         # Crea directory se non esiste
         db_dir = Path(db_path).parent
         db_dir.mkdir(parents=True, exist_ok=True)
         
-        # Connessione con row_factory per dict-like access
-        self.conn = sqlite3.connect(db_path, check_same_thread=False)
-        self.conn.row_factory = sqlite3.Row
+        conn = sqlite3.connect(db_path, check_same_thread=False)
+        conn.row_factory = sqlite3.Row
+        return conn, 'sqlite'
+
+
+class GA4Database:
+    """Manager per database delle metriche GA4 (SQLite/PostgreSQL)."""
+    
+    def __init__(self, db_path: Optional[str] = None):
+        """
+        Inizializza connessione al database.
         
-        logger.info(f"Database connesso: {db_path}")
+        Args:
+            db_path: Percorso file database SQLite o URL PostgreSQL.
+                     Se None, usa DATABASE_URL env var o default SQLite.
+        """
+        # Controlla se è un URL PostgreSQL o path SQLite
+        database_url = os.getenv('DATABASE_URL')
+        
+        if database_url and database_url.startswith(('postgres://', 'postgresql://')):
+            # PostgreSQL mode
+            self.conn, self.db_type = get_database_connection(database_url)
+            self.db_path = database_url
+            logger.info("Database connesso: PostgreSQL (cloud)")
+        else:
+            # SQLite mode (locale)
+            self.db_path = db_path or "data/ga4_data.db"
+            self.conn, self.db_type = get_database_connection(f"sqlite:///{self.db_path}")
+            logger.info(f"Database connesso: SQLite ({self.db_path})")
+        
+        self._placeholder = '%s' if self.db_type == 'postgresql' else '?'
+    
+    def _ph(self, count: int = 1) -> str:
+        """Genera placeholder per query parametrizzate."""
+        return ', '.join([self._placeholder] * count)
+    
+    def _dict_row(self, row) -> Optional[Dict]:
+        """Converte riga in dictionary (compatibile SQLite/PostgreSQL)."""
+        if row is None:
+            return None
+        if self.db_type == 'postgresql':
+            return dict(row)
+        return dict(row)
+    
+    def _execute(self, query: str, params: tuple = ()) -> Any:
+        """Esegue query con gestione cursor cross-database."""
+        cursor = self.conn.cursor()
+        cursor.execute(query, params)
+        return cursor
     
     def create_schema(self):
         """Crea schema database con tabelle e indici."""
         cursor = self.conn.cursor()
         
-        # Tabella daily_metrics
-        cursor.execute("""
-            CREATE TABLE IF NOT EXISTS daily_metrics (
-                date DATE PRIMARY KEY,
-                extraction_timestamp DATETIME NOT NULL,
-                
-                -- Sessioni (valori assoluti del giorno)
-                sessioni_commodity INTEGER NOT NULL,
-                sessioni_lucegas INTEGER NOT NULL,
-                
-                -- Conversioni
-                swi_conversioni INTEGER NOT NULL,
-                
-                -- Conversion Rates (percentuali)
-                cr_commodity REAL NOT NULL,
-                cr_lucegas REAL NOT NULL,
-                cr_canalizzazione REAL NOT NULL,
-                
-                -- Funnel
-                start_funnel INTEGER NOT NULL
-            )
-        """)
-        
-        # Indice per query ordinate per data
-        cursor.execute("""
-            CREATE INDEX IF NOT EXISTS idx_date 
-            ON daily_metrics(date DESC)
-        """)
-        
-        # Tabella products_performance
-        cursor.execute("""
-            CREATE TABLE IF NOT EXISTS products_performance (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                date DATE NOT NULL,
-                product_name TEXT NOT NULL,
-                total_conversions REAL NOT NULL,
-                percentage REAL NOT NULL,
-                
-                FOREIGN KEY (date) REFERENCES daily_metrics(date) ON DELETE CASCADE,
-                UNIQUE(date, product_name)
-            )
-        """)
-        
-        # Indici per products
-        cursor.execute("""
-            CREATE INDEX IF NOT EXISTS idx_product_date 
-            ON products_performance(date DESC)
-        """)
-        
-        cursor.execute("""
-            CREATE INDEX IF NOT EXISTS idx_product_name 
-            ON products_performance(product_name)
-        """)
-        
-        # Tabella sessions_by_channel
-        cursor.execute("""
-            CREATE TABLE IF NOT EXISTS sessions_by_channel (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                date DATE NOT NULL,
-                channel TEXT NOT NULL,
-                commodity_sessions INTEGER NOT NULL,
-                lucegas_sessions INTEGER NOT NULL,
-                
-                FOREIGN KEY (date) REFERENCES daily_metrics(date) ON DELETE CASCADE,
-                UNIQUE(date, channel)
-            )
-        """)
-        
-        # Indici per sessions_by_channel
-        cursor.execute("""
-            CREATE INDEX IF NOT EXISTS idx_channel_date 
-            ON sessions_by_channel(date DESC)
-        """)
-        
-        cursor.execute("""
-            CREATE INDEX IF NOT EXISTS idx_channel_name 
-            ON sessions_by_channel(channel)
-        """)
+        if self.db_type == 'postgresql':
+            # PostgreSQL schema
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS daily_metrics (
+                    date DATE PRIMARY KEY,
+                    extraction_timestamp TIMESTAMP NOT NULL,
+                    sessioni_commodity INTEGER NOT NULL,
+                    sessioni_lucegas INTEGER NOT NULL,
+                    swi_conversioni INTEGER NOT NULL,
+                    cr_commodity REAL NOT NULL,
+                    cr_lucegas REAL NOT NULL,
+                    cr_canalizzazione REAL NOT NULL,
+                    start_funnel INTEGER NOT NULL
+                )
+            """)
+            
+            cursor.execute("""
+                CREATE INDEX IF NOT EXISTS idx_date 
+                ON daily_metrics(date DESC)
+            """)
+            
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS products_performance (
+                    id SERIAL PRIMARY KEY,
+                    date DATE NOT NULL,
+                    product_name TEXT NOT NULL,
+                    total_conversions REAL NOT NULL,
+                    percentage REAL NOT NULL,
+                    UNIQUE(date, product_name)
+                )
+            """)
+            
+            cursor.execute("""
+                CREATE INDEX IF NOT EXISTS idx_product_date 
+                ON products_performance(date DESC)
+            """)
+            
+            cursor.execute("""
+                CREATE INDEX IF NOT EXISTS idx_product_name 
+                ON products_performance(product_name)
+            """)
+            
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS sessions_by_channel (
+                    id SERIAL PRIMARY KEY,
+                    date DATE NOT NULL,
+                    channel TEXT NOT NULL,
+                    commodity_sessions INTEGER NOT NULL,
+                    lucegas_sessions INTEGER NOT NULL,
+                    UNIQUE(date, channel)
+                )
+            """)
+            
+            cursor.execute("""
+                CREATE INDEX IF NOT EXISTS idx_channel_date 
+                ON sessions_by_channel(date DESC)
+            """)
+            
+            cursor.execute("""
+                CREATE INDEX IF NOT EXISTS idx_channel_name 
+                ON sessions_by_channel(channel)
+            """)
+            
+        else:
+            # SQLite schema (originale)
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS daily_metrics (
+                    date DATE PRIMARY KEY,
+                    extraction_timestamp DATETIME NOT NULL,
+                    sessioni_commodity INTEGER NOT NULL,
+                    sessioni_lucegas INTEGER NOT NULL,
+                    swi_conversioni INTEGER NOT NULL,
+                    cr_commodity REAL NOT NULL,
+                    cr_lucegas REAL NOT NULL,
+                    cr_canalizzazione REAL NOT NULL,
+                    start_funnel INTEGER NOT NULL
+                )
+            """)
+            
+            cursor.execute("""
+                CREATE INDEX IF NOT EXISTS idx_date 
+                ON daily_metrics(date DESC)
+            """)
+            
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS products_performance (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    date DATE NOT NULL,
+                    product_name TEXT NOT NULL,
+                    total_conversions REAL NOT NULL,
+                    percentage REAL NOT NULL,
+                    FOREIGN KEY (date) REFERENCES daily_metrics(date) ON DELETE CASCADE,
+                    UNIQUE(date, product_name)
+                )
+            """)
+            
+            cursor.execute("""
+                CREATE INDEX IF NOT EXISTS idx_product_date 
+                ON products_performance(date DESC)
+            """)
+            
+            cursor.execute("""
+                CREATE INDEX IF NOT EXISTS idx_product_name 
+                ON products_performance(product_name)
+            """)
+            
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS sessions_by_channel (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    date DATE NOT NULL,
+                    channel TEXT NOT NULL,
+                    commodity_sessions INTEGER NOT NULL,
+                    lucegas_sessions INTEGER NOT NULL,
+                    FOREIGN KEY (date) REFERENCES daily_metrics(date) ON DELETE CASCADE,
+                    UNIQUE(date, channel)
+                )
+            """)
+            
+            cursor.execute("""
+                CREATE INDEX IF NOT EXISTS idx_channel_date 
+                ON sessions_by_channel(date DESC)
+            """)
+            
+            cursor.execute("""
+                CREATE INDEX IF NOT EXISTS idx_channel_name 
+                ON sessions_by_channel(channel)
+            """)
         
         self.conn.commit()
-        logger.info("Schema database creato con successo")
+        logger.info(f"Schema database creato con successo ({self.db_type})")
     
     def insert_daily_metrics(
         self, 
@@ -144,7 +259,6 @@ class GA4Database:
         try:
             cursor = self.conn.cursor()
             
-            # Prepara valori
             values = (
                 date,
                 datetime.now().isoformat(),
@@ -157,26 +271,52 @@ class GA4Database:
                 metrics['start_funnel']
             )
             
-            if replace:
-                cursor.execute("""
-                    INSERT OR REPLACE INTO daily_metrics 
-                    (date, extraction_timestamp, sessioni_commodity, sessioni_lucegas,
-                     swi_conversioni, cr_commodity, cr_lucegas, cr_canalizzazione, start_funnel)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-                """, values)
+            if self.db_type == 'postgresql':
+                if replace:
+                    cursor.execute("""
+                        INSERT INTO daily_metrics 
+                        (date, extraction_timestamp, sessioni_commodity, sessioni_lucegas,
+                         swi_conversioni, cr_commodity, cr_lucegas, cr_canalizzazione, start_funnel)
+                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+                        ON CONFLICT (date) DO UPDATE SET
+                            extraction_timestamp = EXCLUDED.extraction_timestamp,
+                            sessioni_commodity = EXCLUDED.sessioni_commodity,
+                            sessioni_lucegas = EXCLUDED.sessioni_lucegas,
+                            swi_conversioni = EXCLUDED.swi_conversioni,
+                            cr_commodity = EXCLUDED.cr_commodity,
+                            cr_lucegas = EXCLUDED.cr_lucegas,
+                            cr_canalizzazione = EXCLUDED.cr_canalizzazione,
+                            start_funnel = EXCLUDED.start_funnel
+                    """, values)
+                else:
+                    cursor.execute("""
+                        INSERT INTO daily_metrics 
+                        (date, extraction_timestamp, sessioni_commodity, sessioni_lucegas,
+                         swi_conversioni, cr_commodity, cr_lucegas, cr_canalizzazione, start_funnel)
+                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+                    """, values)
             else:
-                cursor.execute("""
-                    INSERT INTO daily_metrics 
-                    (date, extraction_timestamp, sessioni_commodity, sessioni_lucegas,
-                     swi_conversioni, cr_commodity, cr_lucegas, cr_canalizzazione, start_funnel)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-                """, values)
+                # SQLite
+                if replace:
+                    cursor.execute("""
+                        INSERT OR REPLACE INTO daily_metrics 
+                        (date, extraction_timestamp, sessioni_commodity, sessioni_lucegas,
+                         swi_conversioni, cr_commodity, cr_lucegas, cr_canalizzazione, start_funnel)
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    """, values)
+                else:
+                    cursor.execute("""
+                        INSERT INTO daily_metrics 
+                        (date, extraction_timestamp, sessioni_commodity, sessioni_lucegas,
+                         swi_conversioni, cr_commodity, cr_lucegas, cr_canalizzazione, start_funnel)
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    """, values)
             
             self.conn.commit()
             logger.info(f"Metriche salvate per data: {date}")
             return True
             
-        except sqlite3.Error as e:
+        except Exception as e:
             logger.error(f"Errore inserimento metriche per {date}: {e}")
             self.conn.rollback()
             return False
@@ -200,32 +340,45 @@ class GA4Database:
         """
         try:
             cursor = self.conn.cursor()
+            ph = self._placeholder
             
             # Se replace, elimina prodotti esistenti per questa data
             if replace:
                 cursor.execute(
-                    "DELETE FROM products_performance WHERE date = ?",
+                    f"DELETE FROM products_performance WHERE date = {ph}",
                     (date,)
                 )
             
             # Inserisci nuovi prodotti
             for product in products:
-                cursor.execute("""
-                    INSERT INTO products_performance 
-                    (date, product_name, total_conversions, percentage)
-                    VALUES (?, ?, ?, ?)
-                """, (
-                    date,
-                    product['product_name'],
-                    product['total_conversions'],
-                    product['percentage']
-                ))
+                if self.db_type == 'postgresql':
+                    cursor.execute("""
+                        INSERT INTO products_performance 
+                        (date, product_name, total_conversions, percentage)
+                        VALUES (%s, %s, %s, %s)
+                    """, (
+                        date,
+                        product['product_name'],
+                        product['total_conversions'],
+                        product['percentage']
+                    ))
+                else:
+                    cursor.execute("""
+                        INSERT INTO products_performance 
+                        (date, product_name, total_conversions, percentage)
+                        VALUES (?, ?, ?, ?)
+                    """, (
+                        date,
+                        product['product_name'],
+                        product['total_conversions'],
+                        product['percentage']
+                    ))
             
             self.conn.commit()
             logger.info(f"Prodotti salvati per data {date}: {len(products)} prodotti")
             return True
             
-        except sqlite3.Error as e:
+        except Exception as e:
             logger.error(f"Errore inserimento prodotti per {date}: {e}")
             self.conn.rollback()
             return False
@@ -249,32 +402,45 @@ class GA4Database:
         """
         try:
             cursor = self.conn.cursor()
+            ph = self._placeholder
             
             # Se replace, elimina sessioni esistenti per questa data
             if replace:
                 cursor.execute(
-                    "DELETE FROM sessions_by_channel WHERE date = ?",
+                    f"DELETE FROM sessions_by_channel WHERE date = {ph}",
                     (date,)
                 )
             
             # Inserisci nuovi canali
             for channel in channels:
-                cursor.execute("""
-                    INSERT INTO sessions_by_channel 
-                    (date, channel, commodity_sessions, lucegas_sessions)
-                    VALUES (?, ?, ?, ?)
-                """, (
-                    date,
-                    channel['channel'],
-                    channel['commodity_sessions'],
-                    channel['lucegas_sessions']
-                ))
+                if self.db_type == 'postgresql':
+                    cursor.execute("""
+                        INSERT INTO sessions_by_channel 
+                        (date, channel, commodity_sessions, lucegas_sessions)
+                        VALUES (%s, %s, %s, %s)
+                    """, (
+                        date,
+                        channel['channel'],
+                        channel['commodity_sessions'],
+                        channel['lucegas_sessions']
+                    ))
+                else:
+                    cursor.execute("""
+                        INSERT INTO sessions_by_channel 
+                        (date, channel, commodity_sessions, lucegas_sessions)
+                        VALUES (?, ?, ?, ?)
+                    """, (
+                        date,
+                        channel['channel'],
+                        channel['commodity_sessions'],
+                        channel['lucegas_sessions']
+                    ))
             
             self.conn.commit()
             logger.info(f"Sessioni per canale salvate per data {date}: {len(channels)} canali")
             return True
             
-        except sqlite3.Error as e:
+        except Exception as e:
             logger.error(f"Errore inserimento sessioni per canale per {date}: {e}")
             self.conn.rollback()
             return False
@@ -290,9 +456,10 @@ class GA4Database:
             Lista di dict con sessioni per canale ordinate per commodity_sessions DESC
         """
         cursor = self.conn.cursor()
-        cursor.execute("""
+        ph = self._placeholder
+        cursor.execute(f"""
             SELECT * FROM sessions_by_channel 
-            WHERE date = ? 
+            WHERE date = {ph}
             ORDER BY commodity_sessions DESC
         """, (date,))
         
@@ -310,14 +477,19 @@ class GA4Database:
             Dictionary con metriche o None se non trovate
         """
         cursor = self.conn.cursor()
+        ph = self._placeholder
         cursor.execute(
-            "SELECT * FROM daily_metrics WHERE date = ?",
+            f"SELECT * FROM daily_metrics WHERE date = {ph}",
             (date,)
         )
         row = cursor.fetchone()
         
         if row:
-            return dict(row)
+            result = dict(row)
+            # Normalizza il campo date come stringa
+            if 'date' in result and hasattr(result['date'], 'isoformat'):
+                result['date'] = result['date'].isoformat()
+            return result
         return None
     
     def get_products(self, date: str) -> List[Dict[str, Any]]:
@@ -331,8 +503,9 @@ class GA4Database:
             Lista di dict con prodotti
         """
         cursor = self.conn.cursor()
+        ph = self._placeholder
         cursor.execute(
-            "SELECT * FROM products_performance WHERE date = ? ORDER BY total_conversions DESC",
+            f"SELECT * FROM products_performance WHERE date = {ph} ORDER BY total_conversions DESC",
             (date,)
         )
         rows = cursor.fetchall()
@@ -355,14 +528,22 @@ class GA4Database:
             Lista di dict con metriche ordinate per data
         """
         cursor = self.conn.cursor()
-        cursor.execute("""
+        ph = self._placeholder
+        cursor.execute(f"""
             SELECT * FROM daily_metrics 
-            WHERE date BETWEEN ? AND ?
+            WHERE date BETWEEN {ph} AND {ph}
             ORDER BY date ASC
         """, (start_date, end_date))
         
         rows = cursor.fetchall()
-        return [dict(row) for row in rows]
+        result = []
+        for row in rows:
+            r = dict(row)
+            # Normalizza il campo date come stringa
+            if 'date' in r and hasattr(r['date'], 'isoformat'):
+                r['date'] = r['date'].isoformat()
+            result.append(r)
+        return result
     
     def calculate_comparison(
         self, 
@@ -452,7 +633,11 @@ class GA4Database:
         row = cursor.fetchone()
         
         if row:
-            return row['date']
+            date_val = row['date'] if isinstance(row, dict) else row[0]
+            # Normalizza come stringa
+            if hasattr(date_val, 'isoformat'):
+                return date_val.isoformat()
+            return str(date_val)
         return None
     
     def get_record_count(self) -> int:
@@ -465,7 +650,9 @@ class GA4Database:
         cursor = self.conn.cursor()
         cursor.execute("SELECT COUNT(*) as count FROM daily_metrics")
         row = cursor.fetchone()
-        return row['count'] if row else 0
+        if row:
+            return row['count'] if isinstance(row, dict) else row[0]
+        return 0
     
     def get_date_exists(self, date: str) -> bool:
         """
@@ -500,8 +687,20 @@ class GA4Database:
         
         row = cursor.fetchone()
         
-        if row and row['record_count'] > 0:
-            return dict(row)
+        if row:
+            result = dict(row) if isinstance(row, dict) else {
+                'min_date': row[0],
+                'max_date': row[1],
+                'record_count': row[2],
+                'avg_sessioni_commodity': row[3],
+                'avg_swi_conversioni': row[4]
+            }
+            if result.get('record_count', 0) > 0:
+                # Normalizza date come stringhe
+                for key in ['min_date', 'max_date']:
+                    if key in result and result[key] and hasattr(result[key], 'isoformat'):
+                        result[key] = result[key].isoformat()
+                return result
         
         return {
             'min_date': None,
@@ -601,4 +800,3 @@ if __name__ == "__main__":
     
     db.close()
     print("✓ Test completato")
-

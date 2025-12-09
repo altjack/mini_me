@@ -14,6 +14,7 @@ Uses app factory pattern for testability.
 import os
 import sys
 import argparse
+import base64
 from datetime import datetime, timedelta
 from typing import Optional
 from functools import wraps
@@ -38,8 +39,12 @@ ALLOWED_ORIGINS = [
     'http://localhost:5174',
     'http://127.0.0.1:5173',
     'http://127.0.0.1:5174',
-    # Aggiungere domini produzione quando necessario
 ]
+
+# Aggiungi origini da variabile ambiente (per Render/produzione)
+# Formato: CORS_ORIGINS=https://example1.com,https://example2.com
+if os.getenv('CORS_ORIGINS'):
+    ALLOWED_ORIGINS.extend(os.getenv('CORS_ORIGINS').split(','))
 
 
 # =============================================================================
@@ -80,6 +85,9 @@ def create_app(config: Optional[dict] = None) -> Flask:
     
     # Registra routes
     register_routes(app)
+    
+    # Applica Basic Auth per staging (se configurato)
+    apply_basic_auth_to_app(app)
     
     return app
 
@@ -141,6 +149,110 @@ def require_api_key(f):
         
         return f(*args, **kwargs)
     return decorated
+
+
+def require_basic_auth(f):
+    """
+    Decorator per Basic Authentication (protezione staging).
+    
+    Richiede header 'Authorization: Basic base64(user:pass)'.
+    Credenziali da variabili ambiente STAGING_USER e STAGING_PASSWORD.
+    
+    Se le variabili non sono configurate, l'autenticazione è disabilitata
+    (modalità sviluppo locale).
+    """
+    @wraps(f)
+    def decorated(*args, **kwargs):
+        staging_user = os.getenv('STAGING_USER')
+        staging_password = os.getenv('STAGING_PASSWORD')
+        
+        # Se credenziali non configurate, permetti (dev mode)
+        if not staging_user or not staging_password:
+            return f(*args, **kwargs)
+        
+        # Verifica header Authorization
+        auth_header = request.headers.get('Authorization')
+        
+        if not auth_header or not auth_header.startswith('Basic '):
+            return Response(
+                'Authentication required',
+                401,
+                {'WWW-Authenticate': 'Basic realm="Daily Report Staging"'}
+            )
+        
+        # Decodifica credenziali
+        try:
+            encoded_credentials = auth_header.split(' ', 1)[1]
+            decoded = base64.b64decode(encoded_credentials).decode('utf-8')
+            username, password = decoded.split(':', 1)
+        except (ValueError, UnicodeDecodeError):
+            return Response(
+                'Invalid authentication format',
+                401,
+                {'WWW-Authenticate': 'Basic realm="Daily Report Staging"'}
+            )
+        
+        # Verifica credenziali
+        if username != staging_user or password != staging_password:
+            return Response(
+                'Invalid credentials',
+                401,
+                {'WWW-Authenticate': 'Basic realm="Daily Report Staging"'}
+            )
+        
+        return f(*args, **kwargs)
+    return decorated
+
+
+def apply_basic_auth_to_app(app: Flask):
+    """
+    Applica Basic Auth a tutti gli endpoint (tranne health check).
+    
+    Chiamare dopo register_routes() per wrappare tutti gli endpoint.
+    """
+    staging_user = os.getenv('STAGING_USER')
+    staging_password = os.getenv('STAGING_PASSWORD')
+    
+    # Skip se non configurato
+    if not staging_user or not staging_password:
+        return
+    
+    @app.before_request
+    def check_basic_auth():
+        # Skip health check
+        if request.endpoint == 'health_check':
+            return None
+        
+        # Skip OPTIONS (CORS preflight)
+        if request.method == 'OPTIONS':
+            return None
+        
+        auth_header = request.headers.get('Authorization')
+        
+        if not auth_header or not auth_header.startswith('Basic '):
+            return Response(
+                'Authentication required',
+                401,
+                {'WWW-Authenticate': 'Basic realm="Daily Report Staging"'}
+            )
+        
+        try:
+            encoded_credentials = auth_header.split(' ', 1)[1]
+            decoded = base64.b64decode(encoded_credentials).decode('utf-8')
+            username, password = decoded.split(':', 1)
+        except (ValueError, UnicodeDecodeError):
+            return Response(
+                'Invalid authentication format',
+                401,
+                {'WWW-Authenticate': 'Basic realm="Daily Report Staging"'}
+            )
+        
+        if username != staging_user or password != staging_password:
+            return Response(
+                'Invalid credentials',
+                401,
+                {'WWW-Authenticate': 'Basic realm="Daily Report Staging"'}
+            )
 
 
 def handle_errors(f):

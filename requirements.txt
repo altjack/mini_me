@@ -1,0 +1,40 @@
+# ===========================================
+# Requirements per Deploy su Render
+# Generato da pyproject.toml + dipendenze deploy
+# ===========================================
+
+# AI Agent
+datapizza-ai>=0.0.7
+datapizza-ai-clients-anthropic>=0.0.4
+datapizza-ai-clients-openai>=0.0.7
+
+# Google Analytics
+google-analytics-data>=0.19.0
+google-auth-httplib2>=0.2.0
+google-auth-oauthlib>=1.2.2
+
+# Data Processing
+pandas>=2.3.3
+
+# Utilities
+python-dotenv>=1.0.1
+pyyaml>=6.0.1
+python-dateutil>=2.8.2
+
+# Cache
+redis>=5.0.0
+
+# Web Framework
+flask>=3.1.2
+flask-cors>=6.0.1
+
+# ===========================================
+# Dipendenze per Deploy Render
+# ===========================================
+
+# PostgreSQL driver (binary per compatibilità Render)
+psycopg2-binary>=2.9.9
+
+# WSGI Server per produzione
+gunicorn>=21.0.0
+
