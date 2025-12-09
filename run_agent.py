@@ -1,472 +1,281 @@
 #!/usr/bin/env python3
 """
-Script principale per eseguire l'agente on-demand.
+Script per eseguire solo la generazione email con AI Agent.
 
 Usage:
     uv run run_agent.py
-    
-Questo script:
-1. Carica la configurazione da config.yaml
-2. Crea l'agente con memoria Redis
-3. Esegue il task configurato
-4. Salva il draft per approvazione manuale
-
-Workflow:
-    run_agent.py -> email/draft_email.md -> approve_draft.py -> Redis memory
 """
 
-import yaml
-import os
 import sys
-import logging
-from datetime import datetime
-from pathlib import Path
+import argparse
+from typing import Optional
 
-# Aggiungi directory corrente al path
-sys.path.append(os.path.dirname(__file__))
+from workflows.service import DailyReportWorkflow
+from workflows.config import ConfigLoader, ConfigurationError
+from workflows.logging import LoggerFactory
+from workflows.result_types import StepStatus
 
-from agent.agent import create_agent_with_memory
+
+def print_step_result(step_name: str, result) -> None:
+    """Stampa risultato di uno step in formato user-friendly"""
+    if result.success:
+        icon = "✓" if result.status == StepStatus.SUCCESS else "○"  # ○ per SKIPPED
+        print(f"{icon} {step_name}: {result.message}")
+    else:
+        print(f"✗ {step_name}: {result.message}")
+        if result.error:
+            print(f"  └─ Errore: {result.error}")
 
 
-def setup_logging(config: dict) -> logging.Logger:
+def print_summary(
+    extraction_result,
+    generation_result,
+    total_success: bool
+) -> None:
+    """Stampa riepilogo finale"""
+    print()
+    print("=" * 60)
+    if total_success:
+        print("  ✅ GENERAZIONE COMPLETATA")
+    else:
+        print("  ❌ GENERAZIONE FALLITA")
+    print("=" * 60)
+    print()
+    
+    if extraction_result:
+        print(f"📊 Dati GA4: {extraction_result.date or 'N/A'}")
+    if generation_result and generation_result.draft_path:
+        print(f"📧 Draft: {generation_result.draft_path}")
+    print()
+    
+    if total_success:
+        print("📝 PROSSIMI PASSI:")
+        if generation_result and generation_result.draft_path:
+            print(f"   1. Rivedi: cat {generation_result.draft_path}")
+        print("   2. Approva: uv run approve_draft.py")
+    print()
+
+
+def run_agent_standalone(
+    config: dict,
+    target_date: Optional[str] = None,
+    force_extraction: bool = False,
+    skip_extraction: bool = False
+) -> int:
     """
-    Configura logging per l'esecuzione.
-    
-    Args:
-        config: Dizionario configurazione
-    
-    Returns:
-        Logger configurato
-    """
-    log_level = config.get('logging', {}).get('level', 'INFO')
-    log_file = config.get('logging', {}).get('agent_log', 'agent_execution.log')
-    
-    # Configura formato
-    logging.basicConfig(
-        level=getattr(logging, log_level),
-        format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-        handlers=[
-            logging.FileHandler(log_file),
-            logging.StreamHandler()
-        ]
-    )
-    
-    return logging.getLogger(__name__)
-
-
-def load_config(config_path: str = "config.yaml") -> dict:
-    """
-    Carica configurazione da file YAML.
-    
-    Args:
-        config_path: Percorso al file di configurazione
-    
-    Returns:
-        Dizionario con configurazione
-    """
-    if not os.path.exists(config_path):
-        raise FileNotFoundError(
-            f"File di configurazione non trovato: {config_path}\n"
-            "Assicurati che config.yaml sia presente nella directory."
-        )
-    
-    with open(config_path, 'r', encoding='utf-8') as f:
-        config = yaml.safe_load(f)
-    
-    return config
-
-
-def ensure_directories(config: dict) -> None:
-    """
-    Crea le directory necessarie se non esistono.
-    
-    Args:
-        config: Dizionario configurazione
-    """
-    output_dir = config['execution']['output_dir']
-    archive_dir = config['execution']['archive_dir']
-    
-    Path(output_dir).mkdir(parents=True, exist_ok=True)
-    Path(archive_dir).mkdir(parents=True, exist_ok=True)
-
-
-def check_data_availability(config: dict, logger: logging.Logger) -> bool:
-    """
-    Verifica che i dati GA4 siano disponibili nel database.
-    
-    Args:
-        config: Dizionario configurazione
-        logger: Logger per messaggi
-    
-    Returns:
-        True se dati disponibili, False altrimenti
-    """
-    try:
-        from ga4_extraction.database import GA4Database
-        
-        # Carica configurazione database
-        db_config = config.get('database', {})
-        db_path = db_config.get('sqlite', {}).get('path', 'data/ga4_data.db')
-        
-        # Verifica esistenza file database
-        if not os.path.exists(db_path):
-            logger.error(f"Database non trovato: {db_path}")
-            logger.info("Esegui prima: uv run setup_database.py")
-            return False
-        
-        # Verifica che ci siano dati nel database
-        db = GA4Database(db_path)
-        stats = db.get_statistics()
-        db.close()
-        
-        if stats['record_count'] == 0:
-            logger.error("Database vuoto - nessun dato disponibile")
-            logger.info("Esegui prima: uv run backfill_ga4.py")
-            return False
-        
-        logger.info(f"✓ Database contiene {stats['record_count']} record")
-        logger.info(f"   Periodo: {stats['min_date']} → {stats['max_date']}")
-        return True
-        
-    except Exception as e:
-        logger.error(f"Errore verifica database: {e}")
-        logger.info("Esegui prima: uv run setup_database.py")
-        return False
-
-
-def save_draft(content: str, config: dict, logger: logging.Logger) -> str:
-    """
-    Salva il draft dell'email generata.
-    
-    Args:
-        content: Contenuto email generato
-        config: Dizionario configurazione
-        logger: Logger per messaggi
-    
-    Returns:
-        Percorso al file draft salvato
-    """
-    output_dir = config['execution']['output_dir']
-    draft_filename = config['execution']['draft_filename']
-    draft_path = os.path.join(output_dir, draft_filename)
-    
-    # Crea header con metadata
-    timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-    header = f"""# Draft Email - {timestamp}
-
-**Status:** In attesa di approvazione  
-**Generated by:** Agent Daily Report  
-**Data source:** {config['execution']['data_source']}
-
----
-
-"""
-    
-    # Salva file
-    with open(draft_path, 'w', encoding='utf-8') as f:
-        f.write(header)
-        f.write(content)
-    
-    logger.info(f"✓ Draft salvato: {draft_path}")
-    
-    return draft_path
-
-
-def run_agent_workflow(config: dict, logger: logging.Logger = None, skip_data_check: bool = False) -> str:
-    """
-    Esegue il workflow dell'agente per generare la draft email.
-    
-    Args:
-        config: Dizionario configurazione
-        logger: Logger opzionale (se None, viene creato automaticamente)
-        skip_data_check: Se True, salta il check disponibilità dati (default: False)
-    
-    Returns:
-        Percorso al file draft generato
-        
-    Raises:
-        Exception: Se l'esecuzione fallisce
-    """
-    # Setup logging se non fornito
-    if logger is None:
-        logger = setup_logging(config)
-    
-    logger.info("=== Inizio esecuzione agent workflow ===")
-    
-    # 1. Verifica directory
-    ensure_directories(config)
-    logger.info("✓ Directory configurate")
-    
-    # 2. Verifica disponibilità dati (se richiesto)
-    if not skip_data_check:
-        if not check_data_availability(config, logger):
-            raise RuntimeError(
-                "Dati GA4 non disponibili. "
-                "Esegui prima l'estrazione dati o usa skip_data_check=True"
-            )
-        logger.info("✓ Dati GA4 disponibili")
-    
-    # 3. Crea agente con memoria
-    model = config['agent']['model']
-    verbose = config['agent']['verbose']
-    
-    try:
-        agent = create_agent_with_memory(model=model, verbose=verbose)
-        logger.info(f"✓ Agente creato (model: {model})")
-    except Exception as e:
-        logger.error(f"Errore creazione agente: {e}")
-        
-        if "Redis" in str(e) or "redis" in str(e):
-            raise RuntimeError(
-                f"Errore Redis: {e}\n"
-                "Verifica:\n"
-                "  1. Redis è installato? -> brew install redis\n"
-                "  2. Redis è avviato? -> redis-server\n"
-                "  3. Memoria caricata? -> python agent/load_memory.py"
-            )
-        raise
-    
-    # 4. Esegui task
-    task_prompt = config['execution']['task_prompt']
-    logger.info(f"Task prompt: {task_prompt[:100]}...")
-    
-    try:
-        result = agent.run(task_prompt)
-        logger.info("Task completato con successo")
-    except Exception as e:
-        logger.error(f"Errore esecuzione task: {e}", exc_info=True)
-        raise RuntimeError(f"Errore durante esecuzione agente: {e}")
-    
-    # 5. Estrai contenuto dalla risposta
-    def extract_content(obj):
-        """Estrae ricorsivamente il contenuto da qualsiasi tipo di oggetto"""
-        if isinstance(obj, str):
-            return obj
-        elif isinstance(obj, list):
-            # Per liste, cerca elementi con content/text e skip tool calls
-            parts = []
-            for item in obj:
-                # Skip FunctionCallBlock e FunctionCallResultBlock
-                item_type = type(item).__name__
-                if 'FunctionCall' in item_type or 'Block' in item_type:
-                    continue
-                
-                extracted = extract_content(item)
-                if extracted and extracted.strip():
-                    parts.append(extracted)
-            return "\n".join(parts) if parts else ""
-        # Per StepResult, accedi direttamente all'attributo text
-        elif hasattr(obj, 'text'):
-            text_val = obj.text
-            # Se text è una stringa, ritornala
-            if isinstance(text_val, str):
-                return text_val
-            # Altrimenti recursione
-            return extract_content(text_val)
-        # Prova altri attributi comuni
-        elif hasattr(obj, 'content'):
-            content = obj.content
-            # Se content è una lista, filtra tool blocks
-            if isinstance(content, list):
-                text_parts = []
-                for item in content:
-                    if hasattr(item, 'text'):
-                        text_parts.append(item.text)
-                    elif isinstance(item, str):
-                        text_parts.append(item)
-                return "\n".join(text_parts) if text_parts else extract_content(content)
-            return extract_content(content)
-        elif hasattr(obj, 'message'):
-            return extract_content(obj.message)
-        else:
-            # Solo come ultimo resort
-            obj_str = str(obj)
-            # Se contiene "FunctionCall" o "Block", ritorna vuoto
-            if 'FunctionCall' in obj_str or 'Block' in obj_str:
-                return ""
-            return obj_str
-    
-    # DEBUG: Esamina struttura StepResult
-    logger.info(f"Tipo risultato: {type(result)}")
-    logger.info(f"Attributi disponibili: {dir(result)}")
-    if hasattr(result, '__dict__'):
-        logger.info(f"__dict__: {result.__dict__.keys()}")
-    
-    result_str = extract_content(result)
-    
-    # Se il risultato è vuoto o troppo corto, prova altri metodi
-    if not result_str or len(result_str) < 100:
-        logger.warning(f"Estrazione standard fallita, provo metodi alternativi")
-        
-        # Prova attributi diretti
-        for attr in ['final_answer', 'answer', 'response', 'output', 'result']:
-            if hasattr(result, attr):
-                value = getattr(result, attr)
-                logger.info(f"Trovato attributo {attr}: {type(value)}")
-                result_str = extract_content(value)
-                if result_str and len(result_str) > 100:
-                    logger.info(f"✓ Successo con attributo: {attr}")
-                    break
-    
-    # Se ancora vuoto, fallimento
-    if not result_str or len(result_str) < 100:
-        logger.error(f"Contenuto estratto troppo corto o vuoto: '{result_str[:100] if result_str else 'EMPTY'}'")
-        logger.error(f"Tipo risultato: {type(result)}")
-        raise RuntimeError(
-            "L'agente non ha generato un'email completa. "
-            "Contenuto estratto troppo corto. Verifica il prompt e i tool."
-        )
-    
-    logger.info(f"Contenuto estratto (tipo: {type(result_str)}, lunghezza: {len(result_str)})")
-    
-    # Assicurati che sia una stringa
-    if not isinstance(result_str, str):
-        logger.error(f"Il risultato non è una stringa: {type(result_str)}")
-        result_str = str(result_str)
-    
-    # Filtra righe JSON dei tool calls (formato: {"type": "tool_call", ...})
-    lines = result_str.split('\n')
-    filtered_lines = []
-    for line in lines:
-        stripped = line.strip()
-        # Skip righe che sembrano JSON di tool calls
-        if stripped.startswith('{"type":') and ('"tool_call"' in stripped or '"tool_result"' in stripped):
-            continue
-        filtered_lines.append(line)
-    result_str = '\n'.join(filtered_lines)
-    
-    # 6. Salva draft
-    draft_path = save_draft(result_str, config, logger)
-    logger.info(f"✓ Draft salvato: {draft_path}")
-    logger.info("=== Agent workflow completato con successo ===")
-    
-    return draft_path
-
-
-def extract_ga4_data_for_yesterday(config: dict, logger: logging.Logger) -> tuple:
-    """
-    Estrae dati GA4 per ieri e li salva nel database.
-    
-    Usa service layer centralizzato (stessa implementazione di main.py).
+    Esegue workflow estrazione + generazione.
     
     Args:
         config: Configurazione caricata
-        logger: Logger per messaggi
-    
+        target_date: Data target per estrazione (None = ieri)
+        force_extraction: Forza estrazione anche se dati esistono
+        skip_extraction: Salta estrazione (assume dati già presenti)
+        
     Returns:
-        Tuple (success: bool, date: str) - data estratta se successo
+        Exit code (0 = success, 1 = failure)
     """
-    try:
-        # Import service layer
-        from ga4_extraction.factory import GA4ResourceFactory
-        from ga4_extraction.services import GA4DataService
+    logger = LoggerFactory.get_logger('run_agent', config)
+    
+    extraction_result = None
+    generation_result = None
+    
+    with DailyReportWorkflow(config, logger=logger) as workflow:
         
-        logger.info("Inizio estrazione dati GA4 per ieri...")
-        
-        # Crea risorse usando factory
-        db, cache = GA4ResourceFactory.create_from_config(config)
-        
-        # Crea service
-        with GA4DataService(db, cache) as service:
-            # Estrai e salva per ieri (con check esistenza automatico)
-            success, target_date = service.extract_and_save_for_yesterday(force=False)
+        # Step 1: Estrazione (opzionale)
+        if not skip_extraction:
+            print("📊 Estrazione dati GA4...")
+            extraction_result = workflow.run_extraction(
+                target_date=target_date,
+                force=force_extraction
+            )
+            print_step_result("Estrazione", extraction_result)
             
-            if success:
-                logger.info(f"✓ Dati disponibili per {target_date}")
-                return True, target_date
-            else:
-                logger.error("Errore estrazione/salvataggio dati")
-                return False, None
+            if not extraction_result.success:
+                print_summary(extraction_result, None, False)
+                return 1
+        else:
+            print("⏭️  Estrazione saltata (--skip-extraction)")
         
-    except Exception as e:
-        logger.error(f"Errore estrazione GA4: {e}", exc_info=True)
-        return False, None
+        # Step 2: Generazione
+        print("\n🧠 Generazione email con AI Agent...")
+        generation_result = workflow.run_generation(
+            skip_data_check=skip_extraction
+        )
+        print_step_result("Generazione", generation_result)
+        
+        if not generation_result.success:
+            print_summary(extraction_result, generation_result, False)
+            return 1
+    
+    # Success
+    print_summary(extraction_result, generation_result, True)
+    return 0
 
 
 def main():
-    """
-    Funzione principale per esecuzione standalone.
+    """Entry point CLI"""
+    parser = argparse.ArgumentParser(
+        description='Generazione email Daily Report con AI Agent',
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""
+Esempi:
+  uv run run_agent.py                     # Workflow standard
+  uv run run_agent.py --date 2025-01-15   # Data specifica  
+  uv run run_agent.py --force             # Forza ri-estrazione
+  uv run run_agent.py --skip-extraction   # Solo generazione
+        """
+    )
+    parser.add_argument(
+        '--date', '-d',
+        type=str,
+        metavar='YYYY-MM-DD',
+        help='Data target per estrazione (default: ieri)'
+    )
+    parser.add_argument(
+        '--force', '-f',
+        action='store_true',
+        help='Forza estrazione anche se dati già presenti'
+    )
+    parser.add_argument(
+        '--skip-extraction', '-s',
+        action='store_true',
+        help='Salta estrazione GA4 (usa dati esistenti)'
+    )
+    args = parser.parse_args()
     
-    Workflow:
-    1. Estrae dati GA4 per ieri
-    2. Salva in database + Redis
-    3. Genera email con l'agente
-    """
+    # Header
+    print()
     print("=" * 60)
-    print("  🤖 AGENT DAILY REPORT - Esecuzione On-Demand")
+    print("  🤖 DAILY REPORT - Generazione Email")
     print("=" * 60)
     print()
     
     try:
-        # 1. Carica configurazione
+        # Carica configurazione
         print("📋 Caricamento configurazione...")
-        config = load_config()
+        config = ConfigLoader.load()
         print("✓ Configurazione caricata\n")
         
-        # 2. Setup logging
-        logger = setup_logging(config)
+        # Esegui workflow
+        exit_code = run_agent_standalone(
+            config=config,
+            target_date=args.date,
+            force_extraction=args.force,
+            skip_extraction=args.skip_extraction
+        )
+        sys.exit(exit_code)
         
-        # 3. Estrai dati GA4 per ieri
-        print("📊 Estrazione dati GA4 per ieri...")
-        print("   (Questo può richiedere alcuni secondi)")
-        print()
-        
-        success, extracted_date = extract_ga4_data_for_yesterday(config, logger)
-        
-        if not success:
-            print("\n❌ ERRORE: Estrazione GA4 fallita")
-            print()
-            print("⚠️  POSSIBILI CAUSE:")
-            print("   1. Credenziali Google Analytics non valide o scadute")
-            print("   2. Problema di connessione alla API di Google")
-            print("   3. Configurazione GA4 non corretta")
-            print()
-            print("📝 VERIFICA:")
-            print("   - File credentials/token.json è presente e valido")
-            print("   - La configurazione in ga4_extraction/config.py è corretta")
-            print("   - Log dettagliati in: ga4_extraction.log")
-            print()
-            sys.exit(1)
-        
-        print(f"✓ Dati estratti e salvati per {extracted_date}\n")
-        
-        # 4. Esegui workflow agente
-        print("🧠 Creazione agente con memoria Redis...")
-        print("🚀 Esecuzione task agente...")
-        print("-" * 60)
-        
-        # Skip data check perché abbiamo appena estratto i dati
-        draft_path = run_agent_workflow(config, logger, skip_data_check=True)
-        
-        print("-" * 60)
-        print()
-        
-        # 5. Riepilogo finale
-        print("=" * 60)
-        print("  ✅ ESECUZIONE COMPLETATA CON SUCCESSO")
-        print("=" * 60)
-        print()
-        print(f"📧 Draft email salvato in: {draft_path}")
-        print()
-        print("📝 PROSSIMI PASSI:")
-        print(f"   1. Rivedi il contenuto: cat {draft_path}")
-        print("   2. Se soddisfatto, approva: uv run approve_draft.py")
-        print("   3. Se non soddisfatto, modifica config.yaml e riesegui")
-        print()
-        
-    except FileNotFoundError as e:
-        print(f"\n❌ ERRORE: {e}")
+    except ConfigurationError as e:
+        print(f"\n❌ Errore configurazione: {e}")
         sys.exit(1)
-    
     except KeyboardInterrupt:
-        print("\n\n⚠️  Esecuzione interrotta dall'utente")
+        print("\n\n⚠️  Interrotto dall'utente")
         sys.exit(130)
-    
     except Exception as e:
-        print(f"\n❌ ERRORE IMPREVISTO: {e}")
+        print(f"\n❌ Errore imprevisto: {e}")
         sys.exit(1)
+
+
+# =============================================================================
+# BACKWARD COMPATIBILITY
+# =============================================================================
+# Le funzioni seguenti sono mantenute per backward compatibility con codice
+# che importa direttamente da run_agent.py. Sono deprecate e verranno rimosse
+# in una versione futura.
+
+def load_config(config_path: str = "config.yaml") -> dict:
+    """
+    DEPRECATED: Usa workflows.config.ConfigLoader.load()
+    
+    Mantenuto per backward compatibility.
+    """
+    import warnings
+    warnings.warn(
+        "run_agent.load_config() is deprecated. "
+        "Use workflows.config.ConfigLoader.load() instead.",
+        DeprecationWarning,
+        stacklevel=2
+    )
+    return ConfigLoader.load(config_path)
+
+
+def setup_logging(config: dict):
+    """
+    DEPRECATED: Usa workflows.logging.LoggerFactory.get_logger()
+    
+    Mantenuto per backward compatibility.
+    """
+    import warnings
+    warnings.warn(
+        "run_agent.setup_logging() is deprecated. "
+        "Use workflows.logging.LoggerFactory.get_logger() instead.",
+        DeprecationWarning,
+        stacklevel=2
+    )
+    return LoggerFactory.get_logger('agent', config)
+
+
+def ensure_directories(config: dict) -> None:
+    """
+    DEPRECATED: DailyReportWorkflow gestisce le directory automaticamente.
+    
+    Mantenuto per backward compatibility.
+    """
+    import warnings
+    from pathlib import Path
+    warnings.warn(
+        "run_agent.ensure_directories() is deprecated. "
+        "DailyReportWorkflow handles directories automatically.",
+        DeprecationWarning,
+        stacklevel=2
+    )
+    Path(config['execution']['output_dir']).mkdir(parents=True, exist_ok=True)
+    Path(config['execution']['archive_dir']).mkdir(parents=True, exist_ok=True)
+
+
+def run_agent_workflow(
+    config: dict,
+    logger=None,
+    skip_data_check: bool = False
+) -> str:
+    """
+    DEPRECATED: Usa DailyReportWorkflow.run_generation()
+    
+    Mantenuto per backward compatibility con api.py e altri moduli.
+    Verrà rimosso in una versione futura.
+    
+    Args:
+        config: Configurazione
+        logger: Logger (ignorato, usa LoggerFactory)
+        skip_data_check: Passa a run_generation
+        
+    Returns:
+        Path del draft generato
+        
+    Raises:
+        RuntimeError: Se generazione fallisce
+    """
+    import warnings
+    warnings.warn(
+        "run_agent.run_agent_workflow() is deprecated. "
+        "Use DailyReportWorkflow.run_generation() instead.",
+        DeprecationWarning,
+        stacklevel=2
+    )
+    
+    actual_logger = logger or LoggerFactory.get_logger('agent', config)
+    
+    # Usa il nuovo workflow service
+    with DailyReportWorkflow(config, logger=actual_logger) as workflow:
+        result = workflow.run_generation(skip_data_check=skip_data_check)
+        
+        if not result.success:
+            raise RuntimeError(
+                f"Generazione fallita: {result.error or result.message}"
+            )
+        
+        return result.draft_path
 
 
 if __name__ == "__main__":
     main()
-

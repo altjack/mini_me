@@ -1,410 +1,291 @@
 # Daily Report GA4 Agent
 
-Sistema automatico per estrazione dati GA4 e generazione email giornaliere con AI Agent.
-
-**Architettura SOLID** con storage ibrido SQLite + Redis per performance e persistenza ottimali.
+Automated GA4 data extraction and daily email generation with AI Agent.
 
 ---
 
-## 🎯 Quick Start
+## 🛠️ Tech Stack & Prerequisites
+
+| Component | Version | Purpose |
+|-----------|---------|---------|
+| Python | 3.11+ | Backend runtime |
+| uv | latest | Python package manager |
+| Redis | 7.x | Cache + Agent memory |
+| Node.js | 20+ | Frontend runtime |
+| SQLite | 3.x | Persistent storage |
+
+**External Services:**
+- Anthropic API (Claude claude-sonnet-4-5-20250929)
+- Google Analytics 4 API
+
+---
+
+## 🚀 Quick Start
+
+### 1. Install Dependencies
 
 ```bash
-# 1. Setup iniziale
-uv sync
-brew install redis && redis-server &
-
-# 2. Inizializza database
-uv run scripts/setup_database.py
-
-# 3. Popola storico (60 giorni)
-uv run scripts/backfill_missing_dates.py --start-date 2025-10-01
-
-# 4. Workflow giornaliero
-uv run main.py              # Estrazione dati GA4
-uv run run_agent.py         # Generazione email AI
-uv run approve_draft.py     # Approvazione draft
-```
-
----
-
-## 📋 Architettura
-
-```
-┌─────────────┐
-│  Cron Job   │  Automatico giornaliero
-└──────┬──────┘
-       │
-       ▼
-┌─────────────┐
-│   main.py   │  Estrazione GA4 (D-1)
-└──────┬──────┘
-       │
-       ├────────────────────────────────┐
-       │                                 │
-       ▼                                 ▼
-┌──────────────┐                 ┌──────────────┐
-│SQLite DB     │◄────sync────────│Redis Cache   │
-│(permanente)  │                 │(14 giorni)   │
-└──────┬───────┘                 └──────┬───────┘
-       │                                 │
-       └─────────────┬───────────────────┘
-                     │
-                     ▼
-              ┌─────────────┐
-              │Agent Tools  │  Read-through cache
-              └──────┬──────┘
-                     │
-                     ▼
-              ┌─────────────┐
-              │run_agent.py │  Genera draft email
-              └──────┬──────┘
-                     │
-                     ▼
-              ┌─────────────┐
-              │approve_draft│  Approvazione
-              └─────────────┘
-```
-
-### Vantaggi
-
-✅ **SOLID Architecture**: Factory pattern, service layer, dependency injection  
-✅ **Zero CSV**: Storage normalizzato in SQLite  
-✅ **Performance**: Redis cache per ultimi 14 giorni  
-✅ **Flessibilità**: Comparison dinamici con qualsiasi periodo  
-✅ **Manutenibilità**: Struttura modulare e testabile  
-
----
-
-## 📁 Struttura Progetto
-
-```
-daily_report/
-├── agent/                      # AI Agent modules
-│   ├── agent.py               # Configurazione Anthropic
-│   ├── tools.py               # Tool per accesso dati
-│   ├── prompt.py              # System prompt
-│   └── examples.py            # Gestione esempi storici
-│
-├── ga4_extraction/            # Data Layer (SOLID)
-│   ├── database.py            # GA4Database (SQLite)
-│   ├── redis_cache.py         # GA4RedisCache
-│   ├── extraction.py          # Logica estrazione GA4
-│   ├── factory.py             # GA4ResourceFactory
-│   └── services.py            # GA4DataService
-│
-├── scripts/                   # Utility scripts
-│   ├── setup_database.py      # Setup iniziale
-│   ├── backfill_missing_dates.py  # Recupero dati
-│   ├── extract_channels_delayed.py  # Canali D-2
-│   └── cleanup.sh             # Pulizia temp files
-│
-├── tests/                     # Test suite
-│   ├── test_integration.py    # Test sistema completo
-│   ├── test_workflow.py       # Test workflow
-│   └── test_channels.py       # Test canali
-│
-├── data/                      # Database SQLite
-├── email/                     # Draft e archivio
-├── logs/                      # Log files
-├── credentials/               # GA4 credentials
-│
-├── main.py                    # Orchestrator principale
-├── run_agent.py               # Agent runner
-├── approve_draft.py           # Draft approval
-├── config.yaml                # Configurazione
-└── history.md                 # Storico email
-```
-
----
-
-## 🚀 Setup Completo
-
-### 1. Installazione
-
-```bash
-# Installa dipendenze
+# Python dependencies
 uv sync
 
-# Installa e avvia Redis
+# Redis (macOS)
 brew install redis
 redis-server &
 
-# Verifica Redis
-redis-cli ping  # Output: PONG
+# Frontend dependencies
+cd frontend && npm install && cd ..
 ```
 
-### 2. Configurazione
+### 2. Configuration
 
-Crea file `.env`:
+Create `.env` file:
 ```env
 ANTHROPIC_API_KEY=your_api_key_here
 ```
 
-### 3. Setup Database
+Ensure `credentials/token.json` exists for GA4 OAuth.
+
+### 3. Initialize Database
 
 ```bash
 uv run scripts/setup_database.py
 ```
 
-Questo script:
-- ✅ Crea directory `data/` e `logs/`
-- ✅ Inizializza schema SQLite
-- ✅ Verifica connessione Redis
-- ✅ Configura TTL 14 giorni
-
-### 4. Backfill Storico
+### 4. Backfill Historical Data (first time only)
 
 ```bash
-# Popola ultimi 60 giorni
 uv run scripts/backfill_missing_dates.py --start-date 2025-10-01
-
-# Oppure recupera date specifiche
-uv run scripts/backfill_missing_dates.py --date 2025-11-05
 ```
-
-⏱️ Richiede ~10-15 minuti per 60 giorni
 
 ---
 
-## 📊 Workflow Giornaliero
+## 🖥️ Running the Application
 
-### Automatico (Cron)
+### Start Backend API
 
 ```bash
-# Estrazione dati principali (ogni giorno alle 8:00)
-0 8 * * * cd /path/to/daily_report && uv run main.py
-
-# Estrazione canali ritardata D-2 (ogni giorno alle 9:00)
-0 9 * * * cd /path/to/daily_report && uv run scripts/extract_channels_delayed.py
+uv run api.py
+# Server: http://localhost:5001
 ```
 
-### Manuale
+### Start Frontend UI
 
 ```bash
-# 1. Estrazione dati GA4 per ieri
+cd frontend && npm run dev
+# UI: http://localhost:5173
+```
+
+---
+
+## 🌐 Web UI Features
+
+| Feature | Description |
+|---------|-------------|
+| **Dashboard** | Real-time database statistics (records, date range, avg conversions) |
+| **Generate Report** | One-click GA4 extraction + AI email generation |
+| **Draft Preview** | Live markdown rendering of generated email |
+| **Approve/Reject** | Approve → archives + adds to history.md + Redis memory |
+| **Backfill** | Recover missing data for date ranges |
+
+---
+
+## 🔌 API Endpoints
+
+Base URL: `http://localhost:5001`
+
+### Health & Stats
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/api/health` | GET | Health check |
+| `/api/stats` | GET | Database statistics |
+
+**GET /api/stats Response:**
+```json
+{
+  "record_count": 393,
+  "min_date": "2024-11-06",
+  "max_date": "2025-12-03",
+  "avg_conversioni": 158,
+  "latest_available_date": "2025-12-03"
+}
+```
+
+### Email Workflow
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/api/generate` | POST | Extract GA4 + Generate email draft |
+| `/api/draft` | GET | Read current draft |
+| `/api/approve` | POST | Approve draft (archive + history) |
+| `/api/reject` | POST | Delete current draft |
+
+**POST /api/generate Response:**
+```json
+{
+  "success": true,
+  "content": "# Draft Email...",
+  "data_date": "2025-12-03"
+}
+```
+
+### Data Management
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/api/backfill` | POST | Backfill data for date range |
+| `/api/workflow/full` | POST | Run complete workflow (extract → generate → approve) |
+
+**POST /api/backfill Body:**
+```json
+{
+  "start_date": "2025-11-01",
+  "end_date": "2025-11-10"
+}
+```
+
+---
+
+## 🔄 Workflow Architecture
+
+### Module Structure
+
+```
+workflows/
+├── __init__.py
+├── result_types.py    # StepStatus, StepResult, WorkflowResult
+├── config.py          # ConfigLoader (YAML + validation)
+├── logging.py         # LoggerFactory
+├── interfaces.py      # Protocol definitions (DI)
+├── service.py         # DailyReportWorkflow orchestrator
+└── steps/
+    ├── extraction.py  # ExtractionStep (GA4 data)
+    ├── generation.py  # GenerationStep (AI Agent)
+    └── approval.py    # ApprovalStep (archive + memory)
+```
+
+### Workflow Steps
+
+```
+┌─────────────────┐     ┌─────────────────┐     ┌─────────────────┐
+│  ExtractionStep │ ──► │ GenerationStep  │ ──► │  ApprovalStep   │
+│  (GA4 → SQLite) │     │ (AI → Draft)    │     │ (Archive+Redis) │
+└─────────────────┘     └─────────────────┘     └─────────────────┘
+```
+
+### Usage Examples
+
+```python
+from workflows.service import DailyReportWorkflow
+from workflows.config import ConfigLoader
+
+# Full workflow
+config = ConfigLoader.load()
+with DailyReportWorkflow(config) as workflow:
+    result = workflow.run_full(auto_approve=True)
+    
+    if result.success:
+        print(f"✅ Completed in {result.duration_seconds:.1f}s")
+    else:
+        print(f"❌ Errors: {result.errors}")
+
+# Individual steps
+with DailyReportWorkflow(config) as workflow:
+    extraction = workflow.run_extraction(target_date="2025-12-03")
+    generation = workflow.run_generation()
+    approval = workflow.run_approval(interactive=False)
+```
+
+### Result Types
+
+```python
+class StepStatus(Enum):
+    SUCCESS = auto()
+    FAILED = auto()
+    SKIPPED = auto()  # Data already exists
+
+@dataclass
+class ExtractionResult(StepResult):
+    date: str
+    records_affected: int
+
+@dataclass
+class GenerationResult(StepResult):
+    draft_path: str
+
+@dataclass
+class ApprovalResult(StepResult):
+    archive_path: str
+    added_to_memory: bool
+```
+
+---
+
+## 💻 CLI Commands
+
+### Main Orchestrator
+
+```bash
+# Full workflow (interactive approval)
 uv run main.py
 
-# 2. Generazione email con AI Agent
+# Auto-approve mode
+uv run main.py --auto-approve
+
+# Specific date
+uv run main.py --date 2025-12-01 --force
+```
+
+### Individual Steps
+
+```bash
+# Generate only (extraction + AI)
 uv run run_agent.py
 
-# 3. Review draft
-cat email/draft_email.md
-
-# 4. Approvazione
+# Approve existing draft
 uv run approve_draft.py
 ```
 
----
-
-## 🔄 Recupero Dati Mancanti
-
-### Date Mancanti
+### Data Management
 
 ```bash
-# Recupera tutte le date mancanti (ultimi 60 giorni)
-uv run scripts/backfill_missing_dates.py
+# Backfill missing dates
+uv run scripts/backfill_missing_dates.py --start-date 2025-11-01
 
-# Range specifico
-uv run scripts/backfill_missing_dates.py --start-date 2025-11-01 --end-date 2025-11-10
+# Single date
+uv run scripts/backfill_missing_dates.py --date 2025-12-01
 
-# Singola data
-uv run scripts/backfill_missing_dates.py --date 2025-11-05
-```
-
-### Dati Canale Mancanti
-
-```bash
-# Solo sessioni per canale (D-2)
-uv run scripts/backfill_missing_dates.py --only-channels
-
-# Date mancanti + canali
-uv run scripts/backfill_missing_dates.py --include-channels
-```
-
-### Estrazione Canali Manuale
-
-```bash
-# Data specifica
-uv run scripts/extract_channels_delayed.py --date 2025-11-05
-
-# Ultimi 7 giorni
+# Channel data (D-2)
 uv run scripts/extract_channels_delayed.py --days 7
 ```
 
 ---
 
-## 🛠️ Tool Agente
+## 📁 Project Structure
 
-L'AI Agent ha accesso ai seguenti tool con **read-through cache**:
-
-| Tool | Descrizione | Performance |
-|------|-------------|-------------|
-| `get_daily_report(date)` | Report completo giornaliero | 🚀 Redis cache |
-| `get_metrics_summary(period_days)` | Metriche con comparison | 🚀 Redis cache |
-| `get_product_performance(date)` | Performance prodotti | 🚀 Redis cache |
-| `get_sessions_by_channel(date)` | Sessioni per canale | 🚀 Redis cache |
-
-### Esempi
-
-```python
-# Report giornaliero
-get_daily_report(date="2025-11-10")
-
-# Metriche ultimi 7 giorni
-get_metrics_summary(period_days=7)
-
-# Performance prodotti
-get_product_performance(date="2025-11-10")
+```
+daily_report/
+├── workflows/         # Workflow orchestration (NEW)
+├── agent/             # AI Agent (tools, prompt, memory)
+├── ga4_extraction/    # Data layer (SQLite, Redis, GA4 API)
+├── frontend/          # React UI
+├── scripts/           # Utility scripts
+├── tests/             # Test suite
+├── data/              # SQLite database
+├── email/             # Drafts + archive
+├── config.yaml        # Configuration
+└── history.md         # Approved emails history
 ```
 
 ---
 
-## 🧪 Test
+## 🔧 Configuration
 
-```bash
-# Test integrazione completa
-uv run tests/test_integration.py
-
-# Test workflow
-uv run tests/test_workflow.py
-
-# Test canali
-uv run tests/test_channels.py
-
-# Test validazione date
-uv run tests/test_date_validation.py
-```
-
----
-
-## 📝 Database
-
-### Schema SQLite
-
-```sql
--- Metriche giornaliere
-CREATE TABLE daily_metrics (
-    date DATE PRIMARY KEY,
-    extraction_timestamp DATETIME,
-    sessioni_commodity INTEGER,
-    sessioni_lucegas INTEGER,
-    swi_conversioni INTEGER,
-    cr_commodity REAL,
-    cr_lucegas REAL,
-    cr_canalizzazione REAL,
-    start_funnel INTEGER
-);
-
--- Performance prodotti
-CREATE TABLE products_performance (
-    id INTEGER PRIMARY KEY,
-    date DATE,
-    product_name TEXT,
-    total_conversions REAL,
-    percentage REAL,
-    UNIQUE(date, product_name)
-);
-
--- Sessioni per canale
-CREATE TABLE sessions_by_channel (
-    id INTEGER PRIMARY KEY,
-    date DATE,
-    channel TEXT,
-    sessions INTEGER,
-    UNIQUE(date, channel)
-);
-```
-
-### Redis Cache
-
-```
-Database: 1 (separato da memoria agent db=0)
-Chiavi: ga4:metrics:YYYY-MM-DD
-TTL: 14 giorni (sliding window)
-Contenuto: JSON metriche giornaliere
-```
-
----
-
-## 🐛 Troubleshooting
-
-### Redis non disponibile
-
-```bash
-# Verifica stato
-redis-cli ping
-
-# Avvia Redis
-redis-server &
-
-# Verifica processo
-ps aux | grep redis
-```
-
-### Database non accessibile
-
-```bash
-# Verifica esistenza
-ls -la data/ga4_data.db
-
-# Ricrea se necessario
-uv run scripts/setup_database.py
-
-# Verifica statistiche
-python -c "from ga4_extraction.database import GA4Database; db = GA4Database(); print(db.get_statistics()); db.close()"
-```
-
-### Tool agente non trovano dati
-
-```bash
-# Verifica record in database
-python -c "from ga4_extraction.database import GA4Database; db = GA4Database(); print(f'Record: {db.get_record_count()}'); db.close()"
-
-# Popola database se vuoto
-uv run scripts/backfill_missing_dates.py --start-date 2025-10-01
-```
-
-### Memoria Redis non caricata
-
-```bash
-# Ricarica memoria
-uv run agent/load_memory.py
-
-# Verifica chiavi
-redis-cli KEYS "agent:memory:weborder:*"
-```
-
----
-
-## 🔧 Utility
-
-```bash
-# Pulizia file temporanei
-./scripts/cleanup.sh
-
-# Statistiche database
-python -c "from ga4_extraction.database import GA4Database; db = GA4Database(); print(db.get_statistics()); db.close()"
-
-# Info cache Redis
-python -c "from ga4_extraction.redis_cache import GA4RedisCache; cache = GA4RedisCache(); print(cache.get_cache_info()); cache.close()"
-```
-
----
-
-## 📚 Configurazione
-
-### `config.yaml`
+Key settings in `config.yaml`:
 
 ```yaml
 agent:
   model: "claude-sonnet-4-5-20250929"
-  verbose: true
-
-redis:
-  host: "localhost"
-  port: 6379
-  db: 0
-  memory_prefix: "agent:memory:weborder"
 
 database:
   sqlite:
@@ -413,8 +294,7 @@ database:
     host: "localhost"
     port: 6379
     db: 1
-    key_prefix: "ga4:metrics:"
-    ttl_days: 14
+    ttl_days: 21
 
 execution:
   output_dir: "email"
@@ -424,102 +304,16 @@ execution:
 
 ---
 
-## 🔐 Sicurezza
+## 🐛 Troubleshooting
 
-- ⚠️ **NON committare** `.env` con API keys
-- ⚠️ **NON committare** `credentials/token.json`
-- ✅ `.gitignore` configurato per file sensibili
-- ✅ Redis locale senza autenticazione (solo sviluppo)
-
----
-
-## 📊 Log Files
-
-Tutti i log sono centralizzati in `logs/`:
-
-- `logs/setup_database.log` - Setup database
-- `logs/backfill_missing_dates.log` - Backfill dati
-- `logs/extract_channels_delayed.log` - Estrazione canali
-- `agent_execution.log` - Esecuzione agent (root)
+| Issue | Solution |
+|-------|----------|
+| Redis not available | `redis-server &` |
+| Empty database | `uv run scripts/backfill_missing_dates.py` |
+| GA4 auth expired | Delete `credentials/token.json`, re-auth |
+| Agent not generating | Check `agent_execution.log` |
 
 ---
 
-## 🎯 Principi Architetturali
-
-### SOLID
-
-- **Single Responsibility**: Ogni modulo ha una responsabilità specifica
-- **Open/Closed**: Estensibile via factory e service layer
-- **Dependency Inversion**: Context managers e dependency injection
-
-### DRY
-
-- Service layer elimina duplicazione codice
-- Factory centralizza creazione risorse
-- Context managers gestiscono lifecycle
-
-### KISS
-
-- Struttura directory intuitiva
-- Separazione script/test/core
-- Nomi file descrittivi
-
----
-
-## 📚 Risorse
-
-- [datapizza-ai Documentation](https://github.com/datapizza-labs/datapizza-ai)
-- [Anthropic Claude API](https://docs.anthropic.com/)
-- [Redis Documentation](https://redis.io/docs/)
-- [GA4 Data API](https://developers.google.com/analytics/devguides/reporting/data/v1)
-
----
-
-## 🆘 Support
-
-Per problemi:
-1. Verifica Redis: `redis-cli ping`
-2. Verifica logs: `tail -f logs/*.log`
-3. Test integrazione: `uv run tests/test_integration.py`
-4. Ricarica memoria: `uv run agent/load_memory.py`
-
----
-
-**Version:** 3.0.0 (SOLID Architecture)  
-**Last Updated:** 2025-11-11  
-**Framework:** datapizza-ai 0.0.7+
-
-## 🎯 Changelog v3.0.0
-
-### ✨ Nuove Funzionalità
-
-- **SOLID Architecture**: Factory pattern, service layer, dependency injection
-- **Struttura Riorganizzata**: `scripts/`, `tests/`, `logs/` directories
-- **Service Layer**: `GA4DataService` per business logic centralizzata
-- **Factory Pattern**: `GA4ResourceFactory` per gestione risorse
-- **Context Managers**: Gestione automatica lifecycle risorse
-- **Data Existence Check**: Skip estrazione se dati già presenti
-
-### 🗂️ Riorganizzazione
-
-- ✅ Script utility → `scripts/`
-- ✅ Test consolidati → `tests/`
-- ✅ Log centralizzati → `logs/`
-- ✅ File obsoleti rimossi
-- ✅ `.gitignore` aggiornato
-
-### 🔧 Breaking Changes
-
-- ⚠️ Path script cambiati: `uv run scripts/setup_database.py`
-- ⚠️ Path test cambiati: `uv run tests/test_integration.py`
-- ⚠️ Import aggiornati per nuova struttura
-
-### 📈 Performance
-
-- Check esistenza dati: ~5ms (skip estrazione duplicata)
-- Service layer: -30% duplicazione codice
-- Context managers: gestione risorse automatica
-
----
-
-**Made with ❤️ using datapizza-ai**
+**Version:** 4.0.0 (Workflow Service Layer)  
+**Last Updated:** 2025-12-04

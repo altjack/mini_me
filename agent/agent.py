@@ -2,6 +2,7 @@
 
 from datapizza.agents import Agent
 from datapizza.clients.anthropic import AnthropicClient
+from datapizza.clients.openai import OpenAIClient
 from dotenv import load_dotenv
 import os
 import sys
@@ -16,16 +17,20 @@ load_dotenv()
 from prompt import SYSTEM_PROMPT
 from tools import (
     get_daily_report,
-    get_metrics_summary,
-    get_product_performance,
-    compare_periods
+    get_weekend_report,
+    compare_periods,
+    get_active_promos,
+    compare_promo_periods
 )
 from examples import load_examples, sample_examples, format_examples_for_prompt
 # from load_memory import get_memory_context  # DEPRECATED: usa examples invece
 
-client_anthropic = AnthropicClient(api_key=os.getenv('ANTHROPIC_API_KEY'), model="claude-sonnet-4-5-20250929")
+def client_anthropic(model):
+    return AnthropicClient(api_key=os.getenv('ANTHROPIC_API_KEY'),model=model)
+def client_openai(model):
+    return OpenAIClient(api_key=os.getenv('OPENAI_API_KEY'), model=model)
 
-def create_agent_with_memory(model: str = "claude-sonnet-4-5-20250929", verbose: bool = True) -> Agent:
+def create_agent_with_memory(model: str = "claude-haiku-4-5-20251001", verbose: bool = True) -> Agent:
     """
     Crea un'istanza dell'agente con esempi email da history.md.
     
@@ -34,22 +39,12 @@ def create_agent_with_memory(model: str = "claude-sonnet-4-5-20250929", verbose:
     - Tools per estrarre e analizzare dati GA4 dal database
     
     Args:
-        model: Nome del modello Anthropic da utilizzare
-        verbose: Se True, mostra output dettagliato durante l'esecuzione
+        model: Nome del modello da utilizzare (default: "claude-haiku-4-5-20251001")
+        verbose: Se True, mostra log dettagliati (default: True)
     
     Returns:
         Istanza Agent configurata e pronta all'uso
-    """
-    # Verifica API key
-    api_key = os.getenv('ANTHROPIC_API_KEY')
-    if not api_key:
-        raise ValueError(
-            "ANTHROPIC_API_KEY non trovata nelle variabili d'ambiente.\n"
-            "Aggiungi la chiave nel file .env"
-        )
-    
-    # Crea client Anthropic con modello specificato
-    
+    """    
     # Carica esempi email da history.md
     try:
         all_examples = load_examples("history.md")
@@ -66,56 +61,22 @@ def create_agent_with_memory(model: str = "claude-sonnet-4-5-20250929", verbose:
     # Lista tools disponibili
     available_tools = [
         get_daily_report,
-        get_metrics_summary,
-        get_product_performance,
-        compare_periods
+        get_weekend_report,  # Alias legacy per retrocompatibilità
+        compare_periods,  # Per analisi custom multi-periodo
+        get_active_promos,  # Per verificare promozioni attive
+        compare_promo_periods  # Per confrontare periodi con promo diverse
     ]
     
     # Crea agent
     agent = Agent(
         name="DailyReportAgent",
-        client=client_anthropic,
+        client=client_anthropic(model=model),
         system_prompt=enhanced_prompt,
         tools=available_tools
     )
     
     return agent
 
-
-def create_agent_without_memory(model: str = "claude-sonnet-4-5-20250929", verbose: bool = True) -> Agent:
-    """
-    Crea un'istanza dell'agente SENZA memoria Redis.
-    
-    Utile per testing o quando Redis non è disponibile.
-    
-    Args:
-        model: Nome del modello Anthropic da utilizzare
-        verbose: Se True, mostra output dettagliato
-    
-    Returns:
-        Istanza Agent configurata senza memoria storica
-    """
-    api_key = os.getenv('ANTHROPIC_API_KEY')
-    if not api_key:
-        raise ValueError("ANTHROPIC_API_KEY non trovata nelle variabili d'ambiente.")
-    
-
-    
-    available_tools = [
-        get_daily_report,
-        get_metrics_summary,
-        get_product_performance,
-        compare_periods
-    ]
-    
-    agent = Agent(
-        name="DailyReportAgentNoMemory",
-        client=client_anthropic,
-        system_prompt=SYSTEM_PROMPT,
-        tools=available_tools
-    )
-    
-    return agent
 
 
 if __name__ == "__main__":

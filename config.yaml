@@ -39,8 +39,8 @@ database:
     # Prefisso chiavi Redis per metriche GA4
     key_prefix: "ga4:metrics:"
     
-    # TTL cache in giorni (sliding window ultimi 14 giorni)
-    ttl_days: 14
+    # TTL cache in giorni (sliding window ultimi 21 giorni per confronti promo)
+    ttl_days: 21
 
 # Configurazione Redis per memoria agente (deprecato - ora in database.redis)
 redis:
@@ -86,31 +86,41 @@ execution:
     
     ISTRUZIONI:
     
-    1. ACQUISISCI I DATI:
-       - Usa get_metrics_summary(period_days=1) per ottenere i dati più recenti
-       - Se necessario, usa get_daily_report() per dettagli aggiuntivi
-    
-    2. SCRIVI L'EMAIL COMPLETA usando come riferimento PRIMARIO gli esempi storici che hai nel system prompt:
+    1. ACQUISISCI I DATI (OBBLIGATORIO IN QUESTO ORDINE):
+       a) Usa get_daily_report() per ottenere il report completo della data più recente (default: ieri)
+       b) **USA get_active_promos()** per verificare promozioni attive (OBBLIGATORIO)
+       c) Se get_active_promos() suggerisce un confronto con promo precedente, USA compare_promo_periods()
+
+    2. ANALISI CONTESTUALE CON PROMOZIONI:
+       - Se ci sono promozioni attive, CORRELA le performance con la promo
+       - Se c'è confronto con promo precedente, ANALIZZA le differenze di efficacia
+       - Distingui "PROMO" (campagne temporanee) da "PRODOTTO" (condizioni standard)
+       - Spiega variazioni di performance in relazione alle promozioni
+
+    3. SCRIVI L'EMAIL COMPLETA usando come riferimento PRIMARIO gli esempi storici che hai nel system prompt:
        - EMULA lo stile discorsivo e analitico degli esempi
        - REPLICA la struttura narrativa (non un template rigido, ma il "flusso" degli esempi)
        - USA espressioni e formule simili a quelle che vedi negli esempi
        - MANTIENI il tono professionale ma accessibile degli esempi
        - EVIDENZIA le metriche chiave come fatto negli esempi (SWI, prodotti, sessioni, CR)
     
-    3. CONTENUTO OBBLIGATORIO:
+    4. CONTENUTO OBBLIGATORIO:
+       - **Promozioni attive (se presenti)** con impatto su performance
        - Performance SWI con variazioni percentuali e confronti temporali
        - Dettaglio prodotti (Fixa, Pernoi, Trend, Sempre) con percentuali
        - Sessioni commodity e Luce&Gas con trend
        - Conversion Rates (CR commodity, CR Luce&Gas, CR canalizzazione)
+       - **Confronto promo-vs-promo (se disponibile)** con analisi efficacia
        - Analisi contestuale e insights (come negli esempi storici)
-    
-    4. REQUISITI TECNICI:
+
+    5. REQUISITI TECNICI:
        - USA SOLO dati REALI dai tool (NO placeholder, NO invenzioni)
        - Scrivi l'email COMPLETA immediatamente dopo aver ottenuto i dati
        - NON limitarti a dire "procederò a scrivere" - SCRIVI direttamente
        - Formato markdown, pronta per essere salvata
     
-    IMPORTANTE: Il tuo output finale DEVE essere l'EMAIL COMPLETA, scritta nello stile appreso dagli esempi storici.
+    IMPORTANTE: Il tuo output finale DEVE essere l'EMAIL COMPLETA, scritta nello stile appreso dagli esempi storici,
+    con il contesto promozioni integrato in modo naturale e professionale.
 
 # Configurazione Email Examples
 examples:

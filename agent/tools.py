@@ -1,5 +1,6 @@
 """Tool functions for the agent to interact with GA4 extraction module."""
 
+from atexit import register
 import sys
 import os
 import logging
@@ -21,6 +22,7 @@ from ga4_extraction.extraction import (
 )
 from ga4_extraction.database import GA4Database
 from ga4_extraction.redis_cache import GA4RedisCache
+from agent.session import get_connections
 
 # Configurazione del logger
 logging.basicConfig(
@@ -33,270 +35,323 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
+# Cache in-process per evitare chiamate duplicate sullo stesso giorno
+_daily_report_cache: Dict[Tuple[str, int], str] = {}
 
-@tool
-def get_daily_report(date: str) -> str:
-    """Get the daily report for a given date from database.
-    
-    Args:
-        date: Date in YYYY-MM-DD format.
-    
-    Returns:
-        Formatted string containing the daily report.
+
+def format_dataframe(df: pandas.DataFrame, section_name: str = "", max_rows: int = 20) -> str:
     """
+    Converte un DataFrame pandas in una tabella Markdown leggibile.
+
+    Args:
+        df: DataFrame da formattare.
+        section_name: Nome sezione (non utilizzato ma mantenuto per retrocompatibilità).
+        max_rows: Numero massimo di righe da includere per evitare output eccessivo.
+
+    Returns:
+        Stringa Markdown rappresentante il DataFrame.
+    """
+    if df is None or df.empty:
+        return ""
+
     try:
-        from datetime import datetime, timedelta
-        
-        # Converte la data fornita
-        requested_date = datetime.strptime(date, '%Y-%m-%d')
-        target_date_str = date
-        
-        db, cache = _get_db_instances()
-        
-        # Recupera metriche dal database
+        df_to_use = df.head(max_rows).copy()
+        df_to_use = df_to_use.fillna(0)
+        return df_to_use.to_markdown(index=False)
+    except Exception as exc:  # pragma: no cover
+        logger.warning(f"Impossibile formattare DataFrame '{section_name}': {exc}")
+        return df.to_string(index=False)
+
+
+def _generate_daily_report_content(
+    target_date: datetime,
+    compare_days_ago: int = 7,
+    header_template: Optional[str] = None,
+) -> str:
+    """
+    Genera il contenuto testuale del report giornaliero partendo da una data target.
+
+    Args:
+        target_date: Data target come oggetto datetime.
+        compare_days_ago: Giorni da utilizzare per il confronto storico.
+        header_template: Template personalizzato per l'header del report.
+
+    Returns:
+        Stringa formattata contenente il report completo.
+    """
+    target_date_str = target_date.strftime('%Y-%m-%d')
+    db, cache, should_close = get_connections()
+
+    try:
         current = db.get_metrics(target_date_str)
         if not current:
             return f"❌ Nessun dato disponibile per {target_date_str}"
-        
-        # Calcola confronto con 7 giorni prima
-        comparison = db.calculate_comparison(target_date_str, days_ago=7)
-        
-        if not comparison or not comparison.get('previous'):
-            prev_info = "Nessun dato di confronto disponibile"
-            comp_info = {}
-            prev = {}
-        else:
-            prev = comparison['previous']
-            comp_info = comparison.get('comparison', {})
+
+        comparison = db.calculate_comparison(target_date_str, days_ago=compare_days_ago)
+        prev: Dict[str, Any] = {}
+        comp_info: Dict[str, Any] = {}
+
+        if comparison and comparison.get('previous'):
+            prev = comparison.get('previous', {}) or {}
+            comp_info = comparison.get('comparison', {}) or {}
             prev_info = f"Confrontato con: {comparison['previous_date']}"
-        
-        # Calcola giorno della settimana e mese in italiano
+        else:
+            prev_info = "Nessun dato di confronto disponibile"
+
         giorni_settimana = ['lunedì', 'martedì', 'mercoledì', 'giovedì', 'venerdì', 'sabato', 'domenica']
-        mesi = ['gennaio', 'febbraio', 'marzo', 'aprile', 'maggio', 'giugno', 
-                'luglio', 'agosto', 'settembre', 'ottobre', 'novembre', 'dicembre']
-        giorno_nome = giorni_settimana[requested_date.weekday()]
-        mese_nome = mesi[requested_date.month - 1]
-        data_formattata = f"{giorno_nome.capitalize()} {requested_date.day} {mese_nome}"
-        
-        # Formatta report
-        report = f"""# Report Giornaliero GA4 - {data_formattata} ({target_date_str})
-{prev_info}
-### Generato il: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
+        mesi = [
+            'gennaio', 'febbraio', 'marzo', 'aprile', 'maggio', 'giugno',
+            'luglio', 'agosto', 'settembre', 'ottobre', 'novembre', 'dicembre'
+        ]
+        giorno_nome = giorni_settimana[target_date.weekday()]
+        mese_nome = mesi[target_date.month - 1]
+        data_formattata = f"{giorno_nome.capitalize()} {target_date.day} {mese_nome}"
 
-## Sessioni
+        header_template = header_template or (
+            "# Report Giornaliero GA4 - {data_formattata} ({target_date})\n"
+            "{prev_info}\n"
+            "### Generato il: {generated_at}"
+        )
 
-**Commodity:**
-- Corrente: {current['sessioni_commodity']:,}
-{f"- Precedente: {prev.get('sessioni_commodity', 0):,}" if comparison and comparison.get('previous') else ""}
-{f"- Variazione: {comp_info.get('sessioni_commodity_change', 0):+.2f}%" if comp_info else ""}
+        header = header_template.format(
+            data_formattata=data_formattata,
+            target_date=target_date_str,
+            prev_info=prev_info,
+            generated_at=datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+        )
 
-**Luce&Gas:**
-- Corrente: {current['sessioni_lucegas']:,}
-{f"- Precedente: {prev.get('sessioni_lucegas', 0):,}" if comparison and comparison.get('previous') else ""}
-{f"- Variazione: {comp_info.get('sessioni_lucegas_change', 0):+.2f}%" if comp_info else ""}
+        lines = [
+            header,
+            "",
+            "## Sessioni",
+            "",
+            "**Commodity:**",
+            f"- Corrente: {current['sessioni_commodity']:,}",
+        ]
 
-## Conversioni
+        if prev:
+            lines.append(f"- Precedente: {prev.get('sessioni_commodity', 0):,}")
+        if comp_info:
+            lines.append(f"- Variazione: {comp_info.get('sessioni_commodity_change', 0):+.2f}%")
 
-**SWI (Switch In):**
-- Corrente: {current['swi_conversioni']:,}
-{f"- Precedente: {prev.get('swi_conversioni', 0):,}" if comparison and comparison.get('previous') else ""}
-{f"- Variazione: {comp_info.get('swi_conversioni_change', 0):+.2f}%" if comp_info else ""}
+        lines.extend([
+            "",
+            "**Luce&Gas:**",
+            f"- Corrente: {current['sessioni_lucegas']:,}",
+        ])
 
-## Conversion Rates
+        if prev:
+            lines.append(f"- Precedente: {prev.get('sessioni_lucegas', 0):,}")
+        if comp_info:
+            lines.append(f"- Variazione: {comp_info.get('sessioni_lucegas_change', 0):+.2f}%")
 
-**CR Commodity:**
-- Corrente: {current['cr_commodity']:.2f}%
-{f"- Precedente: {prev.get('cr_commodity', 0):.2f}%" if comparison and comparison.get('previous') else ""}
-{f"- Variazione: {comp_info.get('cr_commodity_change', 0):+.2f}%" if comp_info else ""}
+        lines.extend([
+            "",
+            "## Conversioni",
+            "",
+            "**SWI (Switch In):**",
+            f"- Corrente: {current['swi_conversioni']:,}",
+        ])
 
-**CR Luce&Gas:**
-- Corrente: {current['cr_lucegas']:.2f}%
-{f"- Precedente: {prev.get('cr_lucegas', 0):.2f}%" if comparison and comparison.get('previous') else ""}
-{f"- Variazione: {comp_info.get('cr_lucegas_change', 0):+.2f}%" if comp_info else ""}
+        if prev:
+            lines.append(f"- Precedente: {prev.get('swi_conversioni', 0):,}")
+        if comp_info:
+            lines.append(f"- Variazione: {comp_info.get('swi_conversioni_change', 0):+.2f}%")
 
-**CR Canalizzazione:**
-- Corrente: {current['cr_canalizzazione']:.2f}%
+        lines.extend([
+            "",
+            "## Conversion Rates",
+            "",
+            "**CR Commodity:**",
+            f"- Corrente: {current['cr_commodity']:.2f}%",
+        ])
 
-**Start Funnel:**
-- Corrente: {current['start_funnel']:,}
-"""
-        
-        # Prodotti
+        if prev:
+            lines.append(f"- Precedente: {prev.get('cr_commodity', 0):.2f}%")
+        if comp_info:
+            lines.append(f"- Variazione: {comp_info.get('cr_commodity_change', 0):+.2f}%")
+
+        lines.extend([
+            "",
+            "**CR Luce&Gas:**",
+            f"- Corrente: {current['cr_lucegas']:.2f}%",
+        ])
+
+        if prev:
+            lines.append(f"- Precedente: {prev.get('cr_lucegas', 0):.2f}%")
+        if comp_info:
+            lines.append(f"- Variazione: {comp_info.get('cr_lucegas_change', 0):+.2f}%")
+
+        lines.extend([
+            "",
+            "**CR Canalizzazione:**",
+            f"- Corrente: {current['cr_canalizzazione']:.2f}%",
+            "",
+            "**Start Funnel:**",
+            f"- Corrente: {current['start_funnel']:,}",
+        ])
+
         products = db.get_products(target_date_str)
         if products:
-            report += "\n## Performance Prodotti\n\n"
+            lines.extend([
+                "",
+                "## Performance Prodotti",
+                "",
+            ])
             for prod in products:
-                report += f"- **{prod['product_name'].capitalize()}**: {int(prod['total_conversions'])} conversioni ({prod['percentage']:.2f}%)\n"
-        
-        # Sessioni per canale
+                lines.append(
+                    f"- **{prod['product_name'].capitalize()}**: "
+                    f"{int(prod['total_conversions'])} conversioni ({prod['percentage']:.2f}%)"
+                )
+
         channels = db.get_sessions_by_channel(target_date_str)
         if channels:
-            report += "\n## Sessioni per Canale\n\n"
+            lines.extend([
+                "",
+                "## Sessioni per Canale",
+                "",
+            ])
             for ch in channels:
-                report += f"- **{ch['channel']}**: {ch['commodity_sessions']:,} commodity, {ch['lucegas_sessions']:,} luce&gas\n"
-        
-        db.close()
-        if cache:
-            cache.close()
-        
-        return report
-        
+                lines.append(
+                    f"- **{ch['channel']}**: {ch['commodity_sessions']:,} commodity, "
+                    f"{ch['lucegas_sessions']:,} luce&gas"
+                )
+
+        return "\n".join(lines)
+
+    finally:
+        if should_close:
+            db.close()
+            if cache:
+                cache.close()
+
+
+@tool
+def get_daily_report(date: Optional[str] = None, compare_days_ago: int = 7) -> str:
+    """Get the daily report for a given date from database.
+
+    Args:
+        date: Data nel formato YYYY-MM-DD. Se non fornita, usa la data di ieri.
+        compare_days_ago: Giorni da utilizzare per il confronto (default: 7).
+
+    Returns:
+        Stringa formattata contenente il report giornaliero.
+    """
+    try:
+        if date:
+            target_date = datetime.strptime(date, '%Y-%m-%d')
+        else:
+            target_date = datetime.now() - timedelta(days=1)
+
+        # Normalizza a mezzanotte per coerenza e cache
+        target_date = target_date.replace(hour=0, minute=0, second=0, microsecond=0)
+        target_date_str = target_date.strftime('%Y-%m-%d')
+        cache_key = (target_date_str, compare_days_ago)
+
+        if cache_key in _daily_report_cache:
+            logger.info(f"get_daily_report cache hit per {cache_key}")
+            return _daily_report_cache[cache_key]
+
+        result = _generate_daily_report_content(target_date, compare_days_ago=compare_days_ago)
+        _daily_report_cache[cache_key] = result
+        return result
+
     except Exception as e:
         logger.error(f"Errore nella generazione del report giornaliero: {e}", exc_info=True)
         return f"Errore nella generazione del report giornaliero: {e}"
 
 @tool
-def get_metrics_summary(period_days: int = 1) -> str:
-    """Get a summary of metrics for the last N days from database.
+def get_weekend_report(reference_date: Optional[str] = None) -> str:
+    """Create a report for the weekend days (Friday, Saturday and Sunday) comparing each day with the previous week.
     
     Args:
-        period_days: Number of days to include in the summary.
+        reference_date: Optional date in YYYY-MM-DD format. If not provided, uses today's date.
     
     Returns:
-        Formatted string containing the metrics summary.
+        Formatted string containing the weekend report.
     """
     try:
-        from datetime import datetime, timedelta
-        
-        db, cache = _get_db_instances()
-        
-        # Calcola date: ultimo giorno disponibile (ieri)
-        yesterday = datetime.now() - timedelta(days=1)
-        target_date_str = yesterday.strftime('%Y-%m-%d')
-        
-        # Recupera metriche dal database
-        current = db.get_metrics(target_date_str)
-        if not current:
-            return f"❌ Nessun dato disponibile per {target_date_str}"
-        
-        # Calcola confronto con 7 giorni prima
-        comparison = db.calculate_comparison(target_date_str, days_ago=7)
-        
-        if not comparison or not comparison.get('previous'):
-            prev_info = "Nessun dato di confronto disponibile"
-            comp_info = {}
+        if reference_date:
+            ref_date = datetime.strptime(reference_date, '%Y-%m-%d')
         else:
-            prev = comparison['previous']
-            comp_info = comparison.get('comparison', {})
-            prev_info = f"Confrontato con: {comparison['previous_date']}"
+            ref_date = datetime.now()
         
-        # Calcola giorno della settimana e mese in italiano
-        giorni_settimana = ['lunedì', 'martedì', 'mercoledì', 'giovedì', 'venerdì', 'sabato', 'domenica']
-        mesi = ['gennaio', 'febbraio', 'marzo', 'aprile', 'maggio', 'giugno', 
-                'luglio', 'agosto', 'settembre', 'ottobre', 'novembre', 'dicembre']
-        giorno_nome = giorni_settimana[yesterday.weekday()]
-        mese_nome = mesi[yesterday.month - 1]
-        data_formattata = f"{giorno_nome.capitalize()} {yesterday.day} {mese_nome}"
+        #Verify that is monday
+        if ref_date.weekday() != 0: #0 is monday
+            logger.warning(f"Function called in a date different from monday")
         
-        # Formatta report
-        report = f"""# Report Giornaliero GA4
-## Data: {data_formattata} ({target_date_str})
-{prev_info}
-### Generato il: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
-
-## Sessioni
-
-**Commodity:**
-- Corrente: {current['sessioni_commodity']:,}
-{f"- Precedente: {prev['sessioni_commodity']:,}" if comparison and comparison.get('previous') else ""}
-{f"- Variazione: {comp_info.get('sessioni_commodity_change', 0):+.2f}%" if comp_info else ""}
-
-**Luce&Gas:**
-- Corrente: {current['sessioni_lucegas']:,}
-{f"- Precedente: {prev['sessioni_lucegas']:,}" if comparison and comparison.get('previous') else ""}
-{f"- Variazione: {comp_info.get('sessioni_lucegas_change', 0):+.2f}%" if comp_info else ""}
-
-## Conversioni
-
-**SWI (Switch In):**
-- Corrente: {current['swi_conversioni']:,}
-{f"- Precedente: {prev['swi_conversioni']:,}" if comparison and comparison.get('previous') else ""}
-{f"- Variazione: {comp_info.get('swi_conversioni_change', 0):+.2f}%" if comp_info else ""}
-
-## Conversion Rates
-
-**CR Commodity:**
-- Corrente: {current['cr_commodity']:.2f}%
-{f"- Precedente: {prev['cr_commodity']:.2f}%" if comparison and comparison.get('previous') else ""}
-{f"- Variazione: {comp_info.get('cr_commodity_change', 0):+.2f}%" if comp_info else ""}
-
-**CR Luce&Gas:**
-- Corrente: {current['cr_lucegas']:.2f}%
-{f"- Precedente: {prev['cr_lucegas']:.2f}%" if comparison and comparison.get('previous') else ""}
-{f"- Variazione: {comp_info.get('cr_lucegas_change', 0):+.2f}%" if comp_info else ""}
-
-**CR Canalizzazione:**
-- Corrente: {current['cr_canalizzazione']:.2f}%
-
-**Start Funnel:**
-- Corrente: {current['start_funnel']:,}
-"""
+        days=[]
+        #Get them in chronological order
+        for offset in [3,2,1]:
+            day_dt = ref_date - timedelta(days = offset)
+            days.append(day_dt)
         
-        # Prodotti
-        products = db.get_products(target_date_str)
-        if products:
-            report += "\n## Performance Prodotti\n\n"
-            for prod in products:
-                report += f"- **{prod['product_name'].capitalize()}**: {int(prod['total_conversions'])} conversioni ({prod['percentage']:.2f}%)\n"
-        
-        # Sessioni per canale
-        channels = db.get_sessions_by_channel(target_date_str)
-        if channels:
-            report += "\n## Sessioni per Canale\n\n"
-            for ch in channels[:10]:  # Top 10 canali
-                report += f"- **{ch['channel']}**: {ch['commodity_sessions']:,} commodity, {ch['lucegas_sessions']:,} luce&gas\n"
-        
-        db.close()
-        if cache:
-            cache.close()
-        
-        return report
-        
+        report = f"# Recap Weekend ({days[0].strftime('%d/%m')} - {days[2].strftime('%d/%m')})\n\n"
+
+        db, _, should_close = get_connections()
+        try:
+            total_sess_comm = 0
+            total_sess_lucegas = 0
+            total_swi = 0
+
+            for day in days:
+                days_str = day.strftime('%Y-%m-%d')
+                metrics = db.get_metrics(days_str)
+
+                # Translate day name
+                giorno_nome = day.strftime('%A')
+                map_giorni = {
+                    'Monday': 'Lunedì', 'Tuesday': 'Martedì', 'Wednesday': 'Mercoledì',
+                    'Thursday': 'Giovedì', 'Friday': 'Venerdì', 'Saturday': 'Sabato', 'Sunday': 'Domenica'
+                }
+                nome_it = map_giorni.get(giorno_nome, giorno_nome)
+                
+                # Format header like: ### Venerdì 14 November
+                # Note: Month might still be English if we don't translate it, but test only checks Day Name + Day Number
+                report += f"### {nome_it} {day.day}\n"
+
+                if not metrics:
+                    report += "❌ Dati mancanti\n\n"
+                    continue
+                
+                #Calculate comparison (day - 7)
+                comp = db.calculate_comparison(days_str, days_ago = 7)
+
+                #Extract key metrics variations
+                swi_change = comp['comparison'].get('swi_conversioni_change',0)
+                sess_comm_change = comp['comparison'].get('sessioni_commodity_change',0)
+                sess_lucegas_change = comp['comparison'].get('sessioni_lucegas_change',0)
+                cr_comm_change = comp['comparison'].get('cr_commodity_change',0)
+                cr_lucegas_change = comp['comparison'].get('cr_lucegas_change',0)
+
+                #Accumulate totals
+                total_sess_comm += metrics['sessioni_commodity']
+                total_sess_lucegas += metrics['sessioni_lucegas']
+                total_swi += metrics['swi_conversioni']
+
+
+                #Format report for each day
+                report += f"**SWI:** {metrics['swi_conversioni']} ({swi_change:+.2f}% vs sett.prec.)\n"
+                report += f"**Sessioni Commodity:** {metrics['sessioni_commodity']:,} ({sess_comm_change:+.2f}% vs sett.prec.)\n"
+                report += f"**Sessioni Luce&Gas:** {metrics['sessioni_lucegas']:,} ({sess_lucegas_change:+.2f}% vs sett.prec.)\n"
+                report += f"**CR Commodity:** {metrics['cr_commodity']:.2f}% ({cr_comm_change:+.2f}% vs sett.prec.)\n"
+                report += f"**CR Luce&Gas:** {metrics['cr_lucegas']:.2f}% ({cr_lucegas_change:+.2f}% vs sett.prec.)\n"
+                
+            # Calcola CR totali dai totali accumulati
+            total_cr_comm = (total_swi / total_sess_comm * 100) if total_sess_comm > 0 else 0
+            total_cr_lucegas = (total_swi / total_sess_lucegas * 100) if total_sess_lucegas > 0 else 0
+            
+            report += "### Totale weekend\n"
+            report += f"**SWI Totali** :  {total_swi:,} | **Sessioni Commodity Totali**: {total_sess_comm:,} | **Sessioni Luce&Gas Totali**: {total_sess_lucegas:,} | **CR Commodity Totali**: {total_cr_comm:.2f}% | **CR Luce&Gas Totali**: {total_cr_lucegas:.2f}%\n"
+            return report
+
+        finally:
+            if should_close:
+                db.close()
+
     except Exception as e:
-        logger.error(f"Errore nella generazione del summary: {e}", exc_info=True)
-        return f"Errore nella generazione del summary: {e}"
-
-
-@tool
-def get_product_performance(date: str) -> str:
-    """Get product performance for a given date from database.
-    
-    Args:
-        date: Date in YYYY-MM-DD format.
-    
-    Returns:
-        Formatted string containing the product performance.
-    """
-    try:
-        from datetime import datetime
-        
-        target_date_str = date
-        
-        db, cache = _get_db_instances()
-        
-        # Recupera prodotti dal database
-        products = db.get_products(target_date_str)
-        
-        if not products:
-            return f"❌ Nessun dato sui prodotti disponibile per {target_date_str}"
-        
-        # Formatta report
-        report = f"""# Performance Prodotti - {target_date_str}
-
-"""
-        for prod in products:
-            report += f"- **{prod['product_name'].capitalize()}**: {int(prod['total_conversions'])} conversioni ({prod['percentage']:.2f}%)\n"
-        
-        db.close()
-        if cache:
-            cache.close()
-        
-        return report
-        
-    except Exception as e:
-        logger.error(f"Errore nella generazione del report prodotti: {e}", exc_info=True)
-        return f"Errore nella generazione del report prodotti: {e}"
-
+        logger.error(f"Errore nella generazione del report weekend: {e}", exc_info=True)
+        return f"Errore nella generazione del report weekend: {e}"
 
 @tool
 def compare_periods(start_date: str, end_date: str, compare_start: str, compare_end: str) -> str:
@@ -316,7 +371,7 @@ def compare_periods(start_date: str, end_date: str, compare_start: str, compare_
     try:
         from datetime import datetime
         
-        db, cache = _get_db_instances()
+        db, cache, should_close = get_connections()
         
         # Recupera dati per periodo 1
         period1_data = db.get_date_range(start_date, end_date)
@@ -418,9 +473,10 @@ def compare_periods(start_date: str, end_date: str, compare_start: str, compare_
                 change = calc_change(p1_val, p2_val) if p2_val > 0 else 0
                 report += f"- **{product_name.capitalize()}**: Periodo 1: {p1_val:.0f}, Periodo 2: {p2_val:.0f}, Variazione: {change:+.2f}%\n"
         
-        db.close()
-        if cache:
-            cache.close()
+        if should_close:
+            db.close()
+            if cache:
+                cache.close()
         
         return report
         
@@ -502,16 +558,16 @@ def _get_db_instances():
     Carica config e crea connessioni.
     """
     config_path = os.path.join(os.path.dirname(__file__), '..', 'config.yaml')
-    
+
     with open(config_path, 'r') as f:
         config = yaml.safe_load(f)
-    
+
     db_config = config.get('database', {})
-    
+
     # SQLite
     db_path = db_config.get('sqlite', {}).get('path', 'data/ga4_data.db')
     db = GA4Database(db_path)
-    
+
     # Redis (opzionale)
     try:
         redis_config = db_config.get('redis', {})
@@ -520,303 +576,347 @@ def _get_db_instances():
             port=redis_config.get('port', 6379),
             db=redis_config.get('db', 1),
             key_prefix=redis_config.get('key_prefix', 'ga4:metrics:'),
-            ttl_days=redis_config.get('ttl_days', 14)
+            ttl_days=redis_config.get('ttl_days', 21)
         )
     except Exception as e:
         logger.warning(f"Redis non disponibile: {e}")
         cache = None
-    
+
     return db, cache
 
 
-@tool
-def get_ga4_metrics(date: str = None, compare_days_ago: int = 7) -> str:
-    """Get GA4 metrics for a specific date with dynamic comparison.
-    
-    Reads from Redis cache (fast) with SQLite fallback.
-    Calculates comparison percentages dynamically.
-    
+# ============================================================================
+# PROMO CALENDAR TOOLS
+# ============================================================================
+
+def _load_promo_calendar() -> pandas.DataFrame:
+    """
+    Helper per caricare il calendario promozioni da CSV.
+
+    Returns:
+        DataFrame con calendario promozioni
+
+    Raises:
+        FileNotFoundError: Se file non trovato
+    """
+    promo_path = os.path.join(os.path.dirname(__file__), '..', 'data', 'promo_calendar_2025.csv')
+
+    if not os.path.exists(promo_path):
+        raise FileNotFoundError("File calendario promozioni non trovato")
+
+    df = pandas.read_csv(promo_path)
+
+    # Strip whitespace from column names and values
+    df.columns = df.columns.str.strip()
+    for col in df.columns:
+        if df[col].dtype == 'object':
+            df[col] = df[col].str.strip()
+
+    # Convert date columns to datetime and normalize to date only (no time)
+    df['data_inizio'] = pandas.to_datetime(df['data_inizio']).dt.normalize()
+    df['data_fine'] = pandas.to_datetime(df['data_fine']).dt.normalize()
+
+    return df
+
+
+def _find_promo_for_comparison(target_date: datetime, lookback_min: int = 7, lookback_max: int = 21) -> Optional[dict]:
+    """
+    Trova una promo attiva nello stesso giorno della settimana negli ultimi 7-21 giorni.
+
     Args:
-        date: Date in YYYY-MM-DD format (default: yesterday)
-        compare_days_ago: Days ago to compare with (default: 7)
-    
+        target_date: Data target per cui cercare promo da confrontare
+        lookback_min: Giorni minimi da guardare indietro (default: 7)
+        lookback_max: Giorni massimi da guardare indietro (default: 21)
+
     Returns:
-        Formatted string with current metrics and comparison.
+        Dict con info promo trovata o None
     """
     try:
-        # Date di default: ieri
-        if date is None:
-            yesterday = datetime.now() - timedelta(days=1)
-            date = yesterday.strftime('%Y-%m-%d')
-        
-        db, cache = _get_db_instances()
-        
-        # Prova Redis cache
-        current = None
-        if cache:
-            current = cache.get_metrics(date)
-            if current:
-                logger.info(f"Cache HIT per {date}")
-        
-        # Fallback SQLite
-        if not current:
-            current = db.get_metrics(date)
-            logger.info(f"Database read per {date}")
-        
-        if not current:
-            return f"❌ Nessun dato disponibile per {date}.\n\nVerifica che i dati siano stati estratti."
-        
-        # Calcola comparison dinamico
-        comparison = db.calculate_comparison(date, compare_days_ago)
-        
-        if not comparison or not comparison['previous']:
-            # Nessun confronto disponibile
-            report = f"""# Report GA4 - {date}
+        df = _load_promo_calendar()
 
-**Metriche del giorno:**
+        # Normalize target_date to midnight for consistent comparison
+        target_date = target_date.replace(hour=0, minute=0, second=0, microsecond=0)
+        target_weekday = target_date.weekday()  # 0 = Monday, 6 = Sunday
 
-- **Sessioni Commodity**: {current['sessioni_commodity']}
-- **Sessioni Luce&Gas**: {current['sessioni_lucegas']}
-- **Conversioni SWI**: {current['swi_conversioni']}
-- **CR Commodity**: {current['cr_commodity']:.2f}%
-- **CR Luce&Gas**: {current['cr_lucegas']:.2f}%
-- **CR Canalizzazione**: {current['cr_canalizzazione']:.2f}%
-- **Start Funnel**: {current['start_funnel']}
+        # Cerca nei giorni precedenti con stesso giorno settimana
+        for days_back in range(lookback_min, lookback_max + 1):
+            compare_date = target_date - timedelta(days=days_back)
+            # Normalize to midnight
+            compare_date = compare_date.replace(hour=0, minute=0, second=0, microsecond=0)
 
-⚠️ Dati di confronto non disponibili per {compare_days_ago} giorni fa.
-"""
-        else:
-            # Con confronto
-            comp = comparison['comparison']
-            prev = comparison['previous']
-            prev_date = comparison['previous_date']
-            
-            report = f"""# Report GA4 - {date}
-Confronto con {prev_date} ({compare_days_ago} giorni fa)
+            # Check se stesso giorno della settimana
+            if compare_date.weekday() != target_weekday:
+                continue
 
-## Sessioni
+            # Cerca promo attiva in quella data
+            active_promos = df[
+                (df['data_inizio'] <= compare_date) &
+                (df['data_fine'] >= compare_date)
+            ]
 
-**Commodity:**
-- Corrente: {current['sessioni_commodity']} 
-- Precedente: {prev['sessioni_commodity']}
-- Variazione: {comp['sessioni_commodity_change']:+.2f}%
+            if not active_promos.empty:
+                # Prendi la prima promo trovata (se più di una, priorità alla prima nel CSV)
+                promo = active_promos.iloc[0]
 
-**Luce&Gas:**
-- Corrente: {current['sessioni_lucegas']}
-- Precedente: {prev['sessioni_lucegas']}
-- Variazione: {comp['sessioni_lucegas_change']:+.2f}%
+                return {
+                    'date': compare_date.strftime('%Y-%m-%d'),
+                    'weekday': compare_date.strftime('%A'),
+                    'nome_promo': promo['nome_promo'],
+                    'tipologia': promo['Tipoologia'],  # Note: typo in CSV column name
+                    'prodotto': promo['prodotto'],
+                    'contratto': promo['tipologia_contratto'],
+                    'condizioni': promo['condizioni'],
+                    'days_back': days_back
+                }
 
-## Conversioni
+        return None
 
-**SWI (Switch In):**
-- Corrente: {current['swi_conversioni']}
-- Precedente: {prev['swi_conversioni']}
-- Variazione: {comp['swi_conversioni_change']:+.2f}%
-
-## Conversion Rates
-
-**CR Commodity:**
-- Corrente: {current['cr_commodity']:.2f}%
-- Precedente: {prev['cr_commodity']:.2f}%
-- Variazione: {comp['cr_commodity_change']:+.2f}%
-
-**CR Luce&Gas:**
-- Corrente: {current['cr_lucegas']:.2f}%
-- Precedente: {prev['cr_lucegas']:.2f}%
-- Variazione: {comp['cr_lucegas_change']:+.2f}%
-
-**CR Canalizzazione:**
-- Corrente: {current['cr_canalizzazione']:.2f}%
-
-**Start Funnel:**
-- Corrente: {current['start_funnel']}
-"""
-        
-        # Prodotti
-        products = db.get_products(date)
-        if products:
-            report += "\n## Performance Prodotti\n\n"
-            for prod in products:
-                report += f"- **{prod['product_name'].capitalize()}**: {int(prod['total_conversions'])} conversioni ({prod['percentage']:.2f}%)\n"
-        
-        db.close()
-        if cache:
-            cache.close()
-        
-        return report
-        
     except Exception as e:
-        logger.error(f"Errore get_ga4_metrics: {e}", exc_info=True)
-        return f"❌ Errore recupero metriche: {e}"
+        logger.error(f"Errore ricerca promo per confronto: {e}", exc_info=True)
+        return None
 
 
 @tool
-def get_metrics_trend(days: int = 7, metric: str = "swi_conversioni") -> str:
-    """Get trend analysis for a specific metric over the last N days.
-    
-    Calculates average, min, max, and growth rate.
-    
+def get_active_promos(date: Optional[str] = None) -> str:
+    """Get active promotions for a specific date and suggest comparison with past promos.
+
+    This tool:
+    1. Finds all promotions active on the target date
+    2. Searches for promotions active on the same weekday in the past 7-21 days
+    3. Suggests comparison between current and past promo periods
+
     Args:
-        days: Number of days to analyze (default: 7)
-        metric: Metric to analyze (default: swi_conversioni)
-                Options: sessioni_commodity, sessioni_lucegas, swi_conversioni,
-                        cr_commodity, cr_lucegas, cr_canalizzazione
-    
+        date: Date in YYYY-MM-DD format. If not provided, uses yesterday's date.
+
     Returns:
-        Formatted string with trend analysis.
+        Formatted string with:
+        - Active promotions for the target date
+        - Past promotions for comparison (if found)
+        - Suggestion to use compare_promo_periods() for detailed analysis
     """
     try:
-        db, cache = _get_db_instances()
-        
-        # Calcola date range
-        end_date = datetime.now() - timedelta(days=1)
-        start_date = end_date - timedelta(days=days - 1)
-        
-        start_str = start_date.strftime('%Y-%m-%d')
-        end_str = end_date.strftime('%Y-%m-%d')
-        
-        # Recupera dati
-        metrics = db.get_date_range(start_str, end_str)
-        
-        if not metrics:
-            return f"❌ Nessun dato disponibile per ultimi {days} giorni."
-        
-        # Estrai valori della metrica
-        values = [m[metric] for m in metrics if metric in m]
-        dates = [m['date'] for m in metrics]
-        
-        if not values:
-            return f"❌ Metrica '{metric}' non trovata."
-        
-        # Statistiche
-        avg_val = sum(values) / len(values)
-        min_val = min(values)
-        max_val = max(values)
-        
-        # Trend (primo vs ultimo)
-        if len(values) >= 2:
-            first_val = values[0]
-            last_val = values[-1]
-            if first_val > 0:
-                growth_rate = ((last_val - first_val) / first_val) * 100
-            else:
-                growth_rate = 0
+        # Parse target date and normalize to date only (no time component)
+        if date:
+            target_date = datetime.strptime(date, '%Y-%m-%d')
         else:
-            growth_rate = 0
-        
-        report = f"""# Analisi Trend - {metric.replace('_', ' ').title()}
-Periodo: {start_str} → {end_str} ({days} giorni)
+            target_date = datetime.now() - timedelta(days=1)
 
-## Statistiche
+        # Normalize to midnight (00:00:00) for consistent comparison
+        target_date = target_date.replace(hour=0, minute=0, second=0, microsecond=0)
 
-- **Media**: {avg_val:.2f}
-- **Minimo**: {min_val:.2f} 
-- **Massimo**: {max_val:.2f}
-- **Crescita**: {growth_rate:+.2f}% (primo vs ultimo giorno)
+        # Load promo calendar
+        df = _load_promo_calendar()
 
-## Valori Giornalieri
-
-"""
-        
-        for date, val in zip(dates, values):
-            diff_from_avg = ((val - avg_val) / avg_val * 100) if avg_val > 0 else 0
-            report += f"- {date}: {val:.2f} ({diff_from_avg:+.2f}% vs media)\n"
-        
-        db.close()
-        if cache:
-            cache.close()
-        
-        return report
-        
-    except Exception as e:
-        logger.error(f"Errore get_metrics_trend: {e}", exc_info=True)
-        return f"❌ Errore analisi trend: {e}"
-
-
-@tool
-def get_weekly_summary() -> str:
-    """Get weekly summary comparing current week with previous week.
-    
-    Compares averages of all metrics between the two weeks.
-    
-    Returns:
-        Formatted string with weekly comparison.
-    """
-    try:
-        db, cache = _get_db_instances()
-        
-        today = datetime.now()
-        
-        # Settimana corrente (ultimi 7 giorni)
-        current_end = today - timedelta(days=1)
-        current_start = current_end - timedelta(days=6)
-        
-        # Settimana precedente
-        previous_end = current_start - timedelta(days=1)
-        previous_start = previous_end - timedelta(days=6)
-        
-        # Query dati
-        current_week = db.get_date_range(
-            current_start.strftime('%Y-%m-%d'),
-            current_end.strftime('%Y-%m-%d')
-        )
-        
-        previous_week = db.get_date_range(
-            previous_start.strftime('%Y-%m-%d'),
-            previous_end.strftime('%Y-%m-%d')
-        )
-        
-        if not current_week or not previous_week:
-            return "❌ Dati insufficienti per confronto settimanale."
-        
-        # Calcola medie
-        def avg_metric(data, metric):
-            values = [d[metric] for d in data if metric in d]
-            return sum(values) / len(values) if values else 0
-        
-        def calc_change(current, previous):
-            if previous == 0:
-                return 0
-            return ((current - previous) / previous) * 100
-        
-        metrics_to_compare = [
-            ('sessioni_commodity', 'Sessioni Commodity'),
-            ('sessioni_lucegas', 'Sessioni Luce&Gas'),
-            ('swi_conversioni', 'Conversioni SWI'),
-            ('cr_commodity', 'CR Commodity'),
-            ('cr_lucegas', 'CR Luce&Gas'),
+        # Filter active promos for target date
+        active = df[
+            (df['data_inizio'] <= target_date) &
+            (df['data_fine'] >= target_date)
         ]
-        
-        report = f"""# Riepilogo Settimanale
 
-## Settimana Corrente
-{current_start.strftime('%d/%m/%Y')} - {current_end.strftime('%d/%m/%Y')} ({len(current_week)} giorni)
+        # Format weekday in Italian
+        giorni_settimana = ['Lunedì', 'Martedì', 'Mercoledì', 'Giovedì', 'Venerdì', 'Sabato', 'Domenica']
+        giorno_nome = giorni_settimana[target_date.weekday()]
 
-## Settimana Precedente
-{previous_start.strftime('%d/%m/%Y')} - {previous_end.strftime('%d/%m/%Y')} ({len(previous_week)} giorni)
+        report = f"# Promozioni Attive - {giorno_nome} {target_date.strftime('%d/%m/%Y')}\n\n"
 
-## Confronto Medie
+        if active.empty:
+            report += "❌ **Nessuna promozione attiva in questa data**\n\n"
+        else:
+            report += "## ✅ Promozioni Correnti\n\n"
 
-"""
-        
-        for metric_key, metric_name in metrics_to_compare:
-            curr_avg = avg_metric(current_week, metric_key)
-            prev_avg = avg_metric(previous_week, metric_key)
-            change = calc_change(curr_avg, prev_avg)
-            
-            report += f"""**{metric_name}:**
-- Settimana corrente: {curr_avg:.2f}
-- Settimana precedente: {prev_avg:.2f}
-- Variazione: {change:+.2f}%
+            for _, promo in active.iterrows():
+                start = promo['data_inizio'].strftime('%d/%m/%Y')
+                end = promo['data_fine'].strftime('%d/%m/%Y')
 
-"""
-        
-        db.close()
-        if cache:
-            cache.close()
-        
+                # Distingui Promo da Prodotto
+                tipo_badge = "🎯 PROMO" if promo['Tipoologia'] == 'Promo' else "📦 PRODOTTO"
+
+                report += f"### {tipo_badge}: {promo['nome_promo']}\n"
+                report += f"- **Periodo**: {start} - {end}\n"
+                report += f"- **Prodotto**: {promo['prodotto']}\n"
+                report += f"- **Contratto**: {promo['tipologia_contratto']}\n"
+                report += f"- **Condizioni**: {promo['condizioni']}\n\n"
+
+        # Search for promo on same weekday in past 7-21 days
+        past_promo = _find_promo_for_comparison(target_date)
+
+        if past_promo:
+            report += "---\n\n"
+            report += "## 📊 Confronto con Promo Precedente Disponibile\n\n"
+
+            # Traduci weekday
+            weekday_map = {
+                'Monday': 'Lunedì', 'Tuesday': 'Martedì', 'Wednesday': 'Mercoledì',
+                'Thursday': 'Giovedì', 'Friday': 'Venerdì', 'Saturday': 'Sabato', 'Sunday': 'Domenica'
+            }
+            past_weekday = weekday_map.get(past_promo['weekday'], past_promo['weekday'])
+
+            tipo_badge_past = "🎯 PROMO" if past_promo['tipologia'] == 'Promo' else "📦 PRODOTTO"
+
+            report += f"Trovata promo attiva **{past_promo['days_back']} giorni fa** ({past_promo['date']}, {past_weekday}):\n\n"
+            report += f"### {tipo_badge_past}: {past_promo['nome_promo']}\n"
+            report += f"- **Prodotto**: {past_promo['prodotto']}\n"
+            report += f"- **Contratto**: {past_promo['contratto']}\n"
+            report += f"- **Condizioni**: {past_promo['condizioni']}\n\n"
+
+            report += "💡 **Suggerimento**: Usa `compare_promo_periods()` per confrontare:\n"
+            report += f"   - {giorno_nome} {target_date.strftime('%d/%m')} (oggi)\n"
+            report += f"   - {past_weekday} {datetime.strptime(past_promo['date'], '%Y-%m-%d').strftime('%d/%m')} ({past_promo['days_back']} giorni fa)\n"
+            report += f"   - Metriche confrontate: SWI, CR Commodity, CR L&G, Sessioni\n"
+        else:
+            report += "---\n\n"
+            report += "ℹ️ **Nessuna promo precedente** trovata nello stesso giorno della settimana (ultimi 7-21 giorni)\n"
+
         return report
-        
+
     except Exception as e:
-        logger.error(f"Errore get_weekly_summary: {e}", exc_info=True)
-        return f"❌ Errore riepilogo settimanale: {e}"
+        logger.error(f"Errore nel recupero promozioni attive: {e}", exc_info=True)
+        return f"❌ Errore nel recupero promozioni: {e}"
+
+
+@tool
+def compare_promo_periods(current_date: str, compare_date: str) -> str:
+    """Compare metrics between two dates with different active promotions.
+
+    This tool provides a detailed side-by-side comparison of key metrics
+    (SWI, CR, Sessions) between two promotional periods.
+
+    Args:
+        current_date: First date in YYYY-MM-DD format (typically the recent date).
+        compare_date: Second date in YYYY-MM-DD format (typically the past date).
+
+    Returns:
+        Formatted string with:
+        - Promotions active on both dates
+        - Side-by-side metrics comparison (SWI, CR Commodity, CR L&G, Sessions)
+        - Percentage variations between the two periods
+    """
+    try:
+        # Parse dates and normalize to midnight for consistent comparison
+        date1 = datetime.strptime(current_date, '%Y-%m-%d').replace(hour=0, minute=0, second=0, microsecond=0)
+        date2 = datetime.strptime(compare_date, '%Y-%m-%d').replace(hour=0, minute=0, second=0, microsecond=0)
+
+        # Load promo calendar
+        df = _load_promo_calendar()
+
+        # Find promos for both dates
+        promos1 = df[(df['data_inizio'] <= date1) & (df['data_fine'] >= date1)]
+        promos2 = df[(df['data_inizio'] <= date2) & (df['data_fine'] >= date2)]
+
+        # Get metrics from database
+        db, _, should_close = get_connections()
+
+        try:
+            metrics1 = db.get_metrics(current_date)
+            metrics2 = db.get_metrics(compare_date)
+
+            if not metrics1 or not metrics2:
+                return f"❌ Dati mancanti per una o entrambe le date: {current_date}, {compare_date}"
+
+            # Format weekdays
+            giorni_settimana = ['Lunedì', 'Martedì', 'Mercoledì', 'Giovedì', 'Venerdì', 'Sabato', 'Domenica']
+            giorno1 = giorni_settimana[date1.weekday()]
+            giorno2 = giorni_settimana[date2.weekday()]
+
+            # Build report
+            report = f"# Confronto Periodi con Promo Diverse\n\n"
+
+            # Section 1: Periodo 1 (current)
+            report += f"## 📅 Periodo 1: {giorno1} {date1.strftime('%d/%m/%Y')}\n\n"
+
+            if promos1.empty:
+                report += "❌ **Nessuna promozione attiva**\n\n"
+            else:
+                for _, promo in promos1.iterrows():
+                    tipo_badge = "🎯 PROMO" if promo['Tipoologia'] == 'Promo' else "📦 PRODOTTO"
+                    report += f"**{tipo_badge}: {promo['nome_promo']}**\n"
+                    report += f"- Prodotto: {promo['prodotto']} ({promo['tipologia_contratto']})\n"
+                    report += f"- Condizioni: {promo['condizioni']}\n\n"
+
+            # Section 2: Periodo 2 (compare)
+            report += f"## 📅 Periodo 2: {giorno2} {date2.strftime('%d/%m/%Y')}\n\n"
+
+            if promos2.empty:
+                report += "❌ **Nessuna promozione attiva**\n\n"
+            else:
+                for _, promo in promos2.iterrows():
+                    tipo_badge = "🎯 PROMO" if promo['Tipoologia'] == 'Promo' else "📦 PRODOTTO"
+                    report += f"**{tipo_badge}: {promo['nome_promo']}**\n"
+                    report += f"- Prodotto: {promo['prodotto']} ({promo['tipologia_contratto']})\n"
+                    report += f"- Condizioni: {promo['condizioni']}\n\n"
+
+            # Section 3: Metrics comparison
+            report += "---\n\n"
+            report += "## 📊 Confronto Metriche Chiave\n\n"
+
+            # Helper function for variation
+            def calc_var(val1, val2):
+                if val2 == 0:
+                    return 0.0
+                return ((val1 - val2) / val2) * 100
+
+            # SWI Conversioni
+            swi_var = calc_var(metrics1['swi_conversioni'], metrics2['swi_conversioni'])
+            report += f"### SWI Conversioni\n"
+            report += f"- **{giorno1}**: {metrics1['swi_conversioni']:,}\n"
+            report += f"- **{giorno2}**: {metrics2['swi_conversioni']:,}\n"
+            report += f"- **Variazione**: {swi_var:+.2f}%\n\n"
+
+            # CR Commodity
+            cr_comm_var = calc_var(metrics1['cr_commodity'], metrics2['cr_commodity'])
+            report += f"### CR Commodity\n"
+            report += f"- **{giorno1}**: {metrics1['cr_commodity']:.2f}%\n"
+            report += f"- **{giorno2}**: {metrics2['cr_commodity']:.2f}%\n"
+            report += f"- **Variazione**: {cr_comm_var:+.2f}%\n\n"
+
+            # CR Luce&Gas
+            cr_lg_var = calc_var(metrics1['cr_lucegas'], metrics2['cr_lucegas'])
+            report += f"### CR Luce&Gas\n"
+            report += f"- **{giorno1}**: {metrics1['cr_lucegas']:.2f}%\n"
+            report += f"- **{giorno2}**: {metrics2['cr_lucegas']:.2f}%\n"
+            report += f"- **Variazione**: {cr_lg_var:+.2f}%\n\n"
+
+            # Sessioni Commodity
+            sess_comm_var = calc_var(metrics1['sessioni_commodity'], metrics2['sessioni_commodity'])
+            report += f"### Sessioni Commodity\n"
+            report += f"- **{giorno1}**: {metrics1['sessioni_commodity']:,}\n"
+            report += f"- **{giorno2}**: {metrics2['sessioni_commodity']:,}\n"
+            report += f"- **Variazione**: {sess_comm_var:+.2f}%\n\n"
+
+            # Sessioni Luce&Gas
+            sess_lg_var = calc_var(metrics1['sessioni_lucegas'], metrics2['sessioni_lucegas'])
+            report += f"### Sessioni Luce&Gas\n"
+            report += f"- **{giorno1}**: {metrics1['sessioni_lucegas']:,}\n"
+            report += f"- **{giorno2}**: {metrics2['sessioni_lucegas']:,}\n"
+            report += f"- **Variazione**: {sess_lg_var:+.2f}%\n\n"
+
+            # Summary insight
+            report += "---\n\n"
+            report += "💡 **Insight**: "
+
+            if swi_var > 10:
+                report += f"Il periodo 1 mostra un **incremento significativo** delle conversioni SWI ({swi_var:+.2f}%), "
+            elif swi_var < -10:
+                report += f"Il periodo 1 mostra un **decremento significativo** delle conversioni SWI ({swi_var:+.2f}%), "
+            else:
+                report += f"Le conversioni SWI sono **stabili** tra i due periodi ({swi_var:+.2f}%), "
+
+            if not promos1.empty and not promos2.empty:
+                report += f"nonostante entrambi i periodi avessero promozioni attive. "
+                report += f"Questo suggerisce differenze nell'efficacia delle campagne o nel contesto di mercato."
+            elif not promos1.empty and promos2.empty:
+                report += f"probabilmente grazie all'attivazione della promozione nel periodo 1."
+            elif promos1.empty and not promos2.empty:
+                report += f"nonostante il periodo 2 avesse una promozione attiva (possibile effetto saturazione)."
+            else:
+                report += f"in assenza di promozioni attive in entrambi i periodi."
+
+            return report
+
+        finally:
+            if should_close:
+                db.close()
+
+    except Exception as e:
+        logger.error(f"Errore nel confronto periodi promo: {e}", exc_info=True)
+        return f"❌ Errore nel confronto periodi promo: {e}"
