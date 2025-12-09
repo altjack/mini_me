@@ -5,6 +5,10 @@ Restituisce statistiche aggregate del database GA4.
 Richiede Basic Auth.
 """
 
+import os
+import sys
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+
 from http.server import BaseHTTPRequestHandler
 from _utils import (
     json_response, error_response, options_response,

@@ -5,6 +5,10 @@ Verifica che il servizio sia attivo.
 Non richiede autenticazione.
 """
 
+import os
+import sys
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+
 from datetime import datetime
 from http.server import BaseHTTPRequestHandler
 from _utils import json_response, with_cors
