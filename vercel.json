@@ -22,68 +22,25 @@
     }
   ],
   
-  "routes": [
-    {
-      "src": "/api/health",
-      "dest": "/api/health.py"
-    },
-    {
-      "src": "/api/stats",
-      "dest": "/api/stats.py"
-    },
-    {
-      "src": "/api/draft",
-      "dest": "/api/draft.py"
-    },
-    {
-      "src": "/api/generate",
-      "dest": "/api/generate.py"
-    },
-    {
-      "src": "/api/approve",
-      "dest": "/api/approve.py"
-    },
-    {
-      "src": "/api/reject",
-      "dest": "/api/reject.py"
-    },
-    {
-      "src": "/api/backfill",
-      "dest": "/api/backfill.py"
-    },
-    {
-      "src": "/api/metrics/range",
-      "dest": "/api/metrics/range.py"
-    },
-    {
-      "src": "/api/sessions/range",
-      "dest": "/api/sessions/range.py"
-    },
-    {
-      "handle": "filesystem"
-    },
-    {
-      "src": "/(.*)",
-      "dest": "/$1"
-    }
+  "rewrites": [
+    { "source": "/api/health", "destination": "/api/health.py" },
+    { "source": "/api/stats", "destination": "/api/stats.py" },
+    { "source": "/api/draft", "destination": "/api/draft.py" },
+    { "source": "/api/generate", "destination": "/api/generate.py" },
+    { "source": "/api/approve", "destination": "/api/approve.py" },
+    { "source": "/api/reject", "destination": "/api/reject.py" },
+    { "source": "/api/backfill", "destination": "/api/backfill.py" },
+    { "source": "/api/metrics/range", "destination": "/api/metrics/range.py" },
+    { "source": "/api/sessions/range", "destination": "/api/sessions/range.py" }
   ],
   
   "headers": [
     {
       "source": "/api/(.*)",
       "headers": [
-        {
-          "key": "Access-Control-Allow-Origin",
-          "value": "*"
-        },
-        {
-          "key": "Access-Control-Allow-Methods",
-          "value": "GET, POST, OPTIONS"
-        },
-        {
-          "key": "Access-Control-Allow-Headers",
-          "value": "Content-Type, Authorization, X-API-Key"
-        }
+        { "key": "Access-Control-Allow-Origin", "value": "*" },
+        { "key": "Access-Control-Allow-Methods", "value": "GET, POST, OPTIONS" },
+        { "key": "Access-Control-Allow-Headers", "value": "Content-Type, Authorization, X-API-Key" }
       ]
     }
   ]
