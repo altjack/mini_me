@@ -71,8 +71,6 @@ services:
   - type: web
     name: daily-report-frontend
     env: static
-    plan: free
-    region: frankfurt
     
     # Build
     rootDir: frontend
