@@ -1,0 +1,90 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "version": 2,
+  "name": "daily-report",
+  
+  "builds": [
+    {
+      "src": "api/**/*.py",
+      "use": "@vercel/python"
+    },
+    {
+      "src": "src/frontend/package.json",
+      "use": "@vercel/static-build",
+      "config": {
+        "distDir": "dist"
+      }
+    }
+  ],
+  
+  "routes": [
+    {
+      "src": "/api/health",
+      "dest": "/api/health.py"
+    },
+    {
+      "src": "/api/stats",
+      "dest": "/api/stats.py"
+    },
+    {
+      "src": "/api/draft",
+      "dest": "/api/draft.py"
+    },
+    {
+      "src": "/api/generate",
+      "dest": "/api/generate.py"
+    },
+    {
+      "src": "/api/approve",
+      "dest": "/api/approve.py"
+    },
+    {
+      "src": "/api/reject",
+      "dest": "/api/reject.py"
+    },
+    {
+      "src": "/api/backfill",
+      "dest": "/api/backfill.py"
+    },
+    {
+      "src": "/api/metrics/range",
+      "dest": "/api/metrics/range.py"
+    },
+    {
+      "src": "/api/sessions/range",
+      "dest": "/api/sessions/range.py"
+    },
+    {
+      "src": "/(.*)",
+      "dest": "/src/frontend/$1"
+    }
+  ],
+  
+  "functions": {
+    "api/**/*.py": {
+      "runtime": "python3.12",
+      "maxDuration": 60
+    }
+  },
+  
+  "headers": [
+    {
+      "source": "/api/(.*)",
+      "headers": [
+        {
+          "key": "Access-Control-Allow-Origin",
+          "value": "*"
+        },
+        {
+          "key": "Access-Control-Allow-Methods",
+          "value": "GET, POST, OPTIONS"
+        },
+        {
+          "key": "Access-Control-Allow-Headers",
+          "value": "Content-Type, Authorization, X-API-Key"
+        }
+      ]
+    }
+  ]
+}
+
