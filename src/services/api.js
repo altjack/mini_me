@@ -4,7 +4,9 @@ import axios from 'axios';
 // CONFIGURAZIONE API
 // =============================================================================
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5001/api';
+// In produzione usa URL relativo, in locale usa porta 5001
+const API_URL = import.meta.env.VITE_API_URL || 
+  (window.location.hostname === 'localhost' ? 'http://localhost:5001/api' : '/api');
 const API_KEY = import.meta.env.VITE_API_KEY || '';
 
 // Basic Auth per staging (opzionale)
