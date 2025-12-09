@@ -143,36 +143,34 @@ def backfill_single_date(
     
     Returns:
         True se successo, False altrimenti
+        
+    Raises:
+        Exception: Propaga eccezioni per debug in API
     """
-    try:
-        logger.info(f"Inizio backfill per {target_date}")
-        
-        # Estrai dati principali
-        results, dates = extract_for_date(target_date)
-        
-        # Salva in database
-        success = save_to_database(results, target_date, db, redis_cache, dates)
-        
-        if not success:
-            logger.error(f"✗ Errore salvataggio per {target_date}")
-            return False
-        
-        logger.info(f"✓ Dati principali salvati per {target_date}")
-        
-        # Estrai sessioni per canale se richiesto
-        if include_channels:
-            logger.info(f"Estrazione sessioni per canale per {target_date}...")
-            channel_success = extract_sessions_channels_delayed(target_date, db)
-            if channel_success:
-                logger.info(f"✓ Sessioni canale salvate per {target_date}")
-            else:
-                logger.warning(f"⚠ Sessioni canale non disponibili per {target_date} (ritardo GA4?)")
-        
-        return True
-        
-    except Exception as e:
-        logger.error(f"✗ Errore backfill per {target_date}: {e}", exc_info=True)
-        return False
+    logger.info(f"Inizio backfill per {target_date}")
+    
+    # Estrai dati principali (eccezioni propagate per debug)
+    results, dates = extract_for_date(target_date)
+    
+    # Salva in database
+    success = save_to_database(results, target_date, db, redis_cache, dates)
+    
+    if not success:
+        logger.error(f"✗ Errore salvataggio per {target_date}")
+        raise Exception(f"Salvataggio fallito per {target_date}")
+    
+    logger.info(f"✓ Dati principali salvati per {target_date}")
+    
+    # Estrai sessioni per canale se richiesto
+    if include_channels:
+        logger.info(f"Estrazione sessioni per canale per {target_date}...")
+        channel_success = extract_sessions_channels_delayed(target_date, db)
+        if channel_success:
+            logger.info(f"✓ Sessioni canale salvate per {target_date}")
+        else:
+            logger.warning(f"⚠ Sessioni canale non disponibili per {target_date} (ritardo GA4?)")
+    
+    return True
 
 
 def main():
