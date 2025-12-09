@@ -35,8 +35,11 @@ from ga4_extraction.database import GA4Database
 from ga4_extraction.redis_cache import GA4RedisCache
 from ga4_extraction.extraction import extract_for_date, save_to_database, extract_sessions_channels_delayed
 
-# Configurazione logging
-log_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'logs')
+# Configurazione logging - usa /tmp su Vercel (filesystem read-only)
+if os.getenv('VERCEL'):
+    log_dir = '/tmp/logs'
+else:
+    log_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'logs')
 os.makedirs(log_dir, exist_ok=True)
 logging.basicConfig(
     level=logging.INFO,
