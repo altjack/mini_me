@@ -9,9 +9,13 @@ Provides centralized logger creation with:
 """
 
 import logging
+import os
 import sys
 from pathlib import Path
 from typing import Optional, Dict, Any
+
+# Directory log: /tmp su Vercel (read-only filesystem), altrimenti locale
+LOG_DIR = '/tmp/logs' if os.getenv('VERCEL') else 'logs'
 
 
 class LoggerFactory:
@@ -55,7 +59,7 @@ class LoggerFactory:
         # Determina configurazione
         log_config = (config or {}).get('logging', {})
         actual_level = level or log_config.get('level', 'INFO')
-        actual_file = log_file or log_config.get(f'{name}_log', f'logs/{name}.log')
+        actual_file = log_file or log_config.get(f'{name}_log', f'{LOG_DIR}/{name}.log')
         
         # Crea/riconfigura logger
         logger = logging.getLogger(name)
