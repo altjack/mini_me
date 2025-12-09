@@ -814,11 +814,12 @@ def save_to_database(results: Dict, date: str, db, redis_cache=None, dates: Dict
                 metrics['start_funnel'] = int(total_swi / (metrics['cr_canalizzazione'] / 100))
         
         # Salva metriche in SQLite
+        logger.info(f"Salvataggio metriche per {date}: {metrics}")
         success = db.insert_daily_metrics(date, metrics, replace=True)
         
         if not success:
             logger.error(f"Errore salvataggio metriche in SQLite per {date}")
-            return False
+            raise Exception(f"insert_daily_metrics failed for {date} with metrics: {metrics}")
         
         logger.info(f"✓ Metriche salvate in SQLite per {date}")
         
