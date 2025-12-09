@@ -73,7 +73,7 @@ services:
     env: static
     
     # Build
-    rootDir: frontend
+    rootDir: src/frontend
     buildCommand: npm install && npm run build
     staticPublishPath: dist
     
