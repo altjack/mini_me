@@ -29,8 +29,9 @@ from ga4_extraction.config import get_credentials
 PROPERTY_ID = "281687433"
 SCOPES = ['https://www.googleapis.com/auth/analytics.readonly']
 
-# Configurazione logging - usa /tmp su Vercel (filesystem read-only)
-LOG_PATH = '/tmp/ga4_extraction.log' if os.getenv('VERCEL') else 'ga4_extraction.log'
+# Configurazione logging - usa /tmp su Vercel/Lambda (filesystem read-only)
+_is_serverless = os.getenv('VERCEL') or os.getenv('AWS_LAMBDA_FUNCTION_NAME') or __file__.startswith('/var/task')
+LOG_PATH = '/tmp/ga4_extraction.log' if _is_serverless else 'ga4_extraction.log'
 
 logging.basicConfig(
     level=logging.INFO,

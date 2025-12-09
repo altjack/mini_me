@@ -14,8 +14,9 @@ import sys
 from pathlib import Path
 from typing import Optional, Dict, Any
 
-# Directory log: /tmp su Vercel (read-only filesystem), altrimenti locale
-LOG_DIR = '/tmp/logs' if os.getenv('VERCEL') else 'logs'
+# Directory log: /tmp su Vercel/Lambda (read-only filesystem), altrimenti locale
+_is_serverless = os.getenv('VERCEL') or os.getenv('AWS_LAMBDA_FUNCTION_NAME') or __file__.startswith('/var/task')
+LOG_DIR = '/tmp/logs' if _is_serverless else 'logs'
 
 
 class LoggerFactory:

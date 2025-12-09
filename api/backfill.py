@@ -140,7 +140,12 @@ class handler(BaseHTTPRequestHandler):
                 db.close()
         
         except Exception as e:
-            response = error_response(f'Backfill error: {str(e)}', 500, 'internal')
+            from _utils import safe_error_response
+            response = safe_error_response(
+                error_type='extraction',
+                internal_error=e,
+                status=500
+            )
         
         self._send_response(response)
     

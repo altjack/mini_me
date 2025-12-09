@@ -99,7 +99,12 @@ class handler(BaseHTTPRequestHandler):
                 })
         
         except Exception as e:
-            response = error_response(f'Generation error: {str(e)}', 500, 'internal')
+            from _utils import safe_error_response
+            response = safe_error_response(
+                error_type='generation',
+                internal_error=e,
+                status=500
+            )
         
         self._send_response(response)
     

@@ -24,8 +24,9 @@ from ga4_extraction.database import GA4Database
 from ga4_extraction.redis_cache import GA4RedisCache
 from agent.session import get_connections
 
-# Configurazione del logger - usa /tmp su Vercel (filesystem read-only)
-LOG_PATH = '/tmp/ga4_extraction.log' if os.getenv('VERCEL') else 'ga4_extraction.log'
+# Configurazione del logger - usa /tmp su Vercel/Lambda (filesystem read-only)
+_is_serverless = os.getenv('VERCEL') or os.getenv('AWS_LAMBDA_FUNCTION_NAME') or __file__.startswith('/var/task')
+LOG_PATH = '/tmp/ga4_extraction.log' if _is_serverless else 'ga4_extraction.log'
 
 logging.basicConfig(
     level=logging.INFO,

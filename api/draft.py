@@ -41,9 +41,11 @@ class handler(BaseHTTPRequestHandler):
                     'content': content
                 })
             except Exception as e:
+                import logging
+                logging.getLogger(__name__).error(f"Draft read error: {e}")
                 response = json_response({
                     'exists': False,
-                    'error': str(e)
+                    'error': 'Unable to read draft file'
                 })
         
         self._send_response(response)
