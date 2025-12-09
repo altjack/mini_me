@@ -72,8 +72,15 @@ services:
     name: daily-report-frontend
     env: static
     
-    # Build (NO rootDir - Render aggiunge /src/ automaticamente ai static sites)
-    buildCommand: cd src/frontend && npm install && npm run build
+    # Build (debug: mostra contenuto per capire path su Render)
+    buildCommand: |
+      pwd
+      ls -la
+      ls -la src || true
+      ls -la src/frontend || true
+      cd src/frontend
+      npm install
+      npm run build
     staticPublishPath: src/frontend/dist
     
     # Headers per SPA routing
