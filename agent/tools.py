@@ -24,12 +24,14 @@ from ga4_extraction.database import GA4Database
 from ga4_extraction.redis_cache import GA4RedisCache
 from agent.session import get_connections
 
-# Configurazione del logger
+# Configurazione del logger - usa /tmp su Vercel (filesystem read-only)
+LOG_PATH = '/tmp/ga4_extraction.log' if os.getenv('VERCEL') else 'ga4_extraction.log'
+
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(levelname)s - %(message)s',
     handlers=[
-        logging.FileHandler('ga4_extraction.log'),
+        logging.FileHandler(LOG_PATH),
         logging.StreamHandler()
     ]
 )

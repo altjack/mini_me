@@ -29,12 +29,14 @@ from ga4_extraction.config import get_credentials
 PROPERTY_ID = "281687433"
 SCOPES = ['https://www.googleapis.com/auth/analytics.readonly']
 
-# Configurazione logging
+# Configurazione logging - usa /tmp su Vercel (filesystem read-only)
+LOG_PATH = '/tmp/ga4_extraction.log' if os.getenv('VERCEL') else 'ga4_extraction.log'
+
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(levelname)s - %(message)s',
     handlers=[
-        logging.FileHandler('ga4_extraction.log'),
+        logging.FileHandler(LOG_PATH),
         logging.StreamHandler()
     ]
 )

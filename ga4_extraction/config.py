@@ -8,11 +8,14 @@ import os
 import sys
 import logging
 
+# Usa /tmp su Vercel (filesystem read-only), altrimenti directory corrente
+LOG_PATH = '/tmp/ga4_extraction.log' if os.getenv('VERCEL') else 'ga4_extraction.log'
+
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(levelname)s - %(message)s',
     handlers=[
-        logging.FileHandler('ga4_extraction.log'),
+        logging.FileHandler(LOG_PATH),
         logging.StreamHandler()
     ]
 )
