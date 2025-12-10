@@ -386,9 +386,9 @@ class GA4Database:
             return True
             
         except Exception as e:
-            logger.error(f"Errore inserimento prodotti per {date}: {e}")
+            logger.error(f"Errore inserimento prodotti per {date}: {e}", exc_info=True)
             self.conn.rollback()
-            return False
+            raise
     
     def insert_sessions_by_channel(
         self, 
