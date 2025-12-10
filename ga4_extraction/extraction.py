@@ -44,13 +44,24 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 # ============================================================================
-# AUTENTICAZIONE OAUTH
+# AUTENTICAZIONE OAUTH (lazy)
 # ============================================================================
 
-creds = get_credentials()
-client = BetaAnalyticsDataClient(credentials=creds)
+_ga_client = None
 
 
+def get_ga_client() -> BetaAnalyticsDataClient:
+    """
+    Restituisce un client GA4 con inizializzazione lazy.
+    Evita eccezioni a import time in ambienti serverless.
+    """
+    global _ga_client
+    if _ga_client is None:
+        creds = get_credentials()
+        if not creds:
+            raise Exception("GA4 credentials not configured (GOOGLE_CREDENTIALS_JSON missing or invalid)")
+        _ga_client = BetaAnalyticsDataClient(credentials=creds)
+    return _ga_client
 
 
 # ============================================================================
@@ -549,9 +560,8 @@ def esegui_giornaliero(period_type: str = 'ieri') -> Tuple[Dict, Dict[str, str]]
     logger.info(f"INIZIO ESTRAZIONE GIORNALIERA - Tipo: {period_type}")
     logger.info("=" * 70)
     
-    # Autenticazione
-    creds = get_credentials()
-    client = BetaAnalyticsDataClient(credentials=creds)
+    # Autenticazione (lazy)
+    client = get_ga_client()
     
     # Calcola date
     dates = calculate_dates(period_type)
@@ -914,9 +924,8 @@ def extract_sessions_channels_delayed(target_date_str: str, db=None, skip_valida
         
         logger.info(f"Estrazione sessioni per canale (delayed) per {target_date_str}")
         
-        # Autenticazione
-        creds = get_credentials()
-        client = BetaAnalyticsDataClient(credentials=creds)
+        # Autenticazione (lazy)
+        client = get_ga_client()
         
         # Estrai sessioni per canale
         sessions_df = daily_sessions_channels(client, target_date_str)
@@ -976,9 +985,8 @@ def extract_for_date(target_date_str: str) -> Tuple[Dict, Dict[str, str]]:
     
     logger.info(f"Estrazione per data specifica: {target_date_str}")
     
-    # Autenticazione
-    creds = get_credentials()
-    client = BetaAnalyticsDataClient(credentials=creds)
+    # Autenticazione (lazy)
+    client = get_ga_client()
     
     # Esegue estrazione
     results = {}
