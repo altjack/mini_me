@@ -42,6 +42,11 @@ def get_database_connection(db_url: Optional[str] = None):
         # Render usa postgres:// ma psycopg2 vuole postgresql://
         if url.startswith('postgres://'):
             url = url.replace('postgres://', 'postgresql://', 1)
+
+        # Neon e molti provider serverless richiedono SSL; se non specificato, forza sslmode=require
+        if 'sslmode=' not in url:
+            separator = '&' if '?' in url else '?'
+            url = f"{url}{separator}sslmode=require"
         
         conn = psycopg2.connect(url, cursor_factory=RealDictCursor)
         return conn, 'postgresql'
