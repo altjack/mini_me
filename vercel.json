@@ -21,6 +21,8 @@
       }
     }
   ],
+
+  "installCommand": "npm install --include=dev",
   
   "rewrites": [
     { "source": "/api/health", "destination": "/api/health.py" },
