@@ -91,6 +91,7 @@ class handler(BaseHTTPRequestHandler):
             from scripts.backfill_missing_dates import backfill_single_date
             from ga4_extraction.extraction import extract_for_date
             
+            db = None
             try:
                 # Modalità dry_run: estrai e restituisci i dati senza scrivere su DB
                 if dry_run:
@@ -180,7 +181,8 @@ class handler(BaseHTTPRequestHandler):
                 })
             
             finally:
-                db.close()
+                if db:
+                    db.close()
         
         except Exception as e:
             # Risposta verbosa per ambienti di staging/preview
