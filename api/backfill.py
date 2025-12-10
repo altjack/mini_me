@@ -111,7 +111,7 @@ class handler(BaseHTTPRequestHandler):
                                 }
                             })
                         except Exception as e:
-                            logger.error(f\"Dry-run error for {date_str}: {e}\", exc_info=True)
+                            logger.error(f"Dry-run error for {date_str}: {e}", exc_info=True)
                             results.append({
                                 'date': date_str,
                                 'success': False,
@@ -155,12 +155,13 @@ class handler(BaseHTTPRequestHandler):
                             'error': None
                         })
                     except Exception as e:
-                        # Log errore interno, ma non esporlo all'utente
-                        logger.error(f"Backfill error for {date_str}: {e}")
+                        # Log errore interno
+                        logger.error(f"Backfill error for {date_str}: {e}", exc_info=True)
+                        # Espone l'errore (staging) per debug puntuale
                         results.append({
                             'date': date_str,
                             'success': False,
-                            'error': 'Data extraction failed for this date'
+                            'error': str(e)
                         })
                     
                     current_date += timedelta(days=1)
@@ -182,11 +183,12 @@ class handler(BaseHTTPRequestHandler):
                 db.close()
         
         except Exception as e:
-            from _utils import safe_error_response
-            response = safe_error_response(
-                error_type='extraction',
-                internal_error=e,
-                status=500
+            # Risposta verbosa per ambienti di staging/preview
+            logger.error(f"Unhandled backfill exception: {e}", exc_info=True)
+            response = error_response(
+                message=f'Backfill failed: {e}',
+                status=500,
+                error_type='internal'
             )
         
         self._send_response(response)

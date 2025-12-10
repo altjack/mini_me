@@ -12,7 +12,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from http.server import BaseHTTPRequestHandler
 from _utils import (
     json_response, options_response,
-    check_basic_auth, get_draft_path
+    check_basic_auth, get_draft_path, is_development
 )
 
 
@@ -21,8 +21,8 @@ class handler(BaseHTTPRequestHandler):
     
     def do_GET(self):
         """GET /api/draft - Legge draft corrente."""
-        # Check auth
-        auth_error = check_basic_auth(self)
+        # Check auth (in dev permetti senza credenziali per evitare 401 rumorosi)
+        auth_error = None if is_development() else check_basic_auth(self)
         if auth_error:
             self._send_response(auth_error)
             return
