@@ -14,8 +14,11 @@ from datetime import datetime, timedelta
 from http.server import BaseHTTPRequestHandler
 from _utils import (
     json_response, error_response, options_response,
-    check_basic_auth, check_api_key, get_db
+    check_basic_auth, check_api_key, get_db,
+    validate_date_string
 )
+import logging
+logger = logging.getLogger(__name__)
 
 
 class handler(BaseHTTPRequestHandler):
@@ -44,28 +47,23 @@ class handler(BaseHTTPRequestHandler):
             start_date_str = data.get('start_date')
             end_date_str = data.get('end_date')
             include_channels = data.get('include_channels', False)
+            dry_run = data.get('dry_run', False)
             
-            if not start_date_str or not end_date_str:
-                response = error_response(
-                    'start_date and end_date are required',
-                    400,
-                    'validation'
-                )
+            # Validazione date con funzione sicura
+            start_error = validate_date_string(start_date_str, 'start_date')
+            if start_error:
+                response = error_response(start_error, 400, 'validation')
                 self._send_response(response)
                 return
             
-            # Parse e valida date
-            try:
-                start_date = datetime.strptime(start_date_str, '%Y-%m-%d')
-                end_date = datetime.strptime(end_date_str, '%Y-%m-%d')
-            except ValueError:
-                response = error_response(
-                    'Invalid date format. Use YYYY-MM-DD',
-                    400,
-                    'validation'
-                )
+            end_error = validate_date_string(end_date_str, 'end_date')
+            if end_error:
+                response = error_response(end_error, 400, 'validation')
                 self._send_response(response)
                 return
+            
+            start_date = datetime.strptime(start_date_str, '%Y-%m-%d')
+            end_date = datetime.strptime(end_date_str, '%Y-%m-%d')
             
             if start_date > end_date:
                 response = error_response(
@@ -91,10 +89,52 @@ class handler(BaseHTTPRequestHandler):
             import sys
             sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
             from scripts.backfill_missing_dates import backfill_single_date
-            
-            db = get_db()
+            from ga4_extraction.extraction import extract_for_date
             
             try:
+                # Modalità dry_run: estrai e restituisci i dati senza scrivere su DB
+                if dry_run:
+                    results = []
+                    current_date = start_date
+                    while current_date <= end_date:
+                        date_str = current_date.strftime('%Y-%m-%d')
+                        try:
+                            ga4_result, _dates = extract_for_date(date_str)
+                            results.append({
+                                'date': date_str,
+                                'success': True,
+                                'error': None,
+                                'ga4_preview': {
+                                    'sessioni': ga4_result.get('sessioni'),
+                                    'sessioni_lucegas': ga4_result.get('sessioni_lucegas'),
+                                    'swi': ga4_result.get('swi')
+                                }
+                            })
+                        except Exception as e:
+                            logger.error(f\"Dry-run error for {date_str}: {e}\", exc_info=True)
+                            results.append({
+                                'date': date_str,
+                                'success': False,
+                                'error': str(e)
+                            })
+                        current_date += timedelta(days=1)
+
+                    success_count = sum(1 for r in results if r['success'])
+                    response = json_response({
+                        'success': True,
+                        'dry_run': True,
+                        'data': {
+                            'total': len(results),
+                            'successful': success_count,
+                            'failed': len(results) - success_count,
+                            'details': results
+                        }
+                    })
+                    self._send_response(response)
+                    return
+
+                db = get_db()
+                
                 # Esegui backfill per ogni data
                 results = []
                 current_date = start_date
@@ -115,10 +155,12 @@ class handler(BaseHTTPRequestHandler):
                             'error': None
                         })
                     except Exception as e:
+                        # Log errore interno, ma non esporlo all'utente
+                        logger.error(f"Backfill error for {date_str}: {e}")
                         results.append({
                             'date': date_str,
                             'success': False,
-                            'error': str(e)
+                            'error': 'Data extraction failed for this date'
                         })
                     
                     current_date += timedelta(days=1)

@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import ReactMarkdown from 'react-markdown';
+import rehypeSanitize from 'rehype-sanitize';
 import { api } from '../services/api';
 import { Send, Check, X, RefreshCw, Loader2 } from 'lucide-react';
 import clsx from 'clsx';
@@ -95,7 +96,7 @@ export const EmailGenerator = ({ onActionComplete }) => {
       {draft && (
         <div className="space-y-6">
           <div className="bg-gray-50 p-6 rounded-lg border border-gray-200 prose prose-sm max-w-none max-h-[600px] overflow-y-auto">
-            <ReactMarkdown>{draft}</ReactMarkdown>
+            <ReactMarkdown rehypePlugins={[rehypeSanitize]}>{draft}</ReactMarkdown>
           </div>
 
           <div className="flex justify-end space-x-4">

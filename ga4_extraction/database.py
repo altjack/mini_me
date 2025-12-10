@@ -317,9 +317,11 @@ class GA4Database:
             return True
             
         except Exception as e:
-            logger.error(f"Errore inserimento metriche per {date}: {e}")
+            # Log dettagliato per debug (es. vincoli o problemi di connessione)
+            logger.error(f"Errore inserimento metriche per {date}: {e}", exc_info=True)
             self.conn.rollback()
-            return False
+            # Propaga per rendere visibile l'errore a livello API
+            raise
     
     def insert_products(
         self, 
