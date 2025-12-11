@@ -86,6 +86,7 @@ def get_allowed_origins() -> list:
     Restituisce lista di origini CORS permesse.
     
     Legge da CORS_ORIGINS env var (comma-separated) o usa default per dev.
+    In Vercel preview, accetta dinamicamente origini .vercel.app
     MAI ritorna '*' (wildcard).
     """
     cors_origins_env = os.getenv('CORS_ORIGINS', '')
@@ -100,6 +101,36 @@ def get_allowed_origins() -> list:
     return DEFAULT_ALLOWED_ORIGINS
 
 
+def is_origin_allowed(request_origin: str) -> bool:
+    """
+    Verifica se un'origine è permessa per CORS.
+    
+    Args:
+        request_origin: Origin header dalla request
+        
+    Returns:
+        True se l'origine è permessa
+        
+    SECURITY:
+    - In produzione/preview Vercel, accetta origini .vercel.app dello stesso progetto
+    - Altrimenti verifica contro whitelist esplicita
+    """
+    if not request_origin:
+        return False
+    
+    # Check whitelist esplicita
+    allowed = get_allowed_origins()
+    if request_origin in allowed:
+        return True
+    
+    # In Vercel, accetta origini .vercel.app (preview deployments)
+    if os.getenv('VERCEL'):
+        if request_origin.endswith('.vercel.app') and request_origin.startswith('https://'):
+            return True
+    
+    return False
+
+
 def get_cors_headers(request_origin: Optional[str] = None) -> Dict[str, str]:
     """
     Restituisce headers CORS per le risposte.
@@ -112,21 +143,16 @@ def get_cors_headers(request_origin: Optional[str] = None) -> Dict[str, str]:
     
     SECURITY:
     - MAI usa '*' come origin
-    - Verifica che l'origin sia nella whitelist
-    - Allow-Credentials solo se origin specifico
+    - Verifica che l'origin sia nella whitelist o .vercel.app
+    - Allow-Credentials solo se origin specifico e permesso
     """
-    allowed_origins = get_allowed_origins()
-    
     # Determina l'origin da usare nella risposta
-    if request_origin and request_origin in allowed_origins:
+    if request_origin and is_origin_allowed(request_origin):
         response_origin = request_origin
         allow_credentials = 'true'
-    elif len(allowed_origins) == 1:
-        # Se c'è solo un'origine, usala
-        response_origin = allowed_origins[0]
-        allow_credentials = 'true'
     else:
-        # Fallback: usa la prima origine, no credentials
+        # Fallback: usa la prima origine dalla whitelist
+        allowed_origins = get_allowed_origins()
         response_origin = allowed_origins[0] if allowed_origins else 'http://localhost:5173'
         allow_credentials = 'false'
     

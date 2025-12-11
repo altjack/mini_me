@@ -26,6 +26,7 @@
   
   "rewrites": [
     { "source": "/api/auth/login", "destination": "/api/auth/login.py" },
+    { "source": "/api/auth/logout", "destination": "/api/auth/logout.py" },
     { "source": "/api/health", "destination": "/api/health.py" },
     { "source": "/api/stats", "destination": "/api/stats.py" },
     { "source": "/api/draft", "destination": "/api/draft.py" },
