@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { Card, Title, Text } from '@tremor/react';
+import toast from 'react-hot-toast';
 import { 
   BarChart, 
   Bar, 
@@ -51,7 +52,9 @@ export function Dashboard() {
         setData(metricsRes.data.data);
         setMeta(metricsRes.data.meta);
       } else {
-        setError(metricsRes.data.error || 'Errore nel caricamento dati SWI');
+        const errorMsg = metricsRes.data.error || 'Errore nel caricamento dati SWI';
+        setError(errorMsg);
+        toast.error(errorMsg);
       }
       
       // Fetch sessioni
@@ -62,7 +65,9 @@ export function Dashboard() {
       }
     } catch (err) {
       console.error('Failed to fetch data', err);
-      setError('Impossibile caricare i dati. Verifica che il backend sia attivo.');
+      const errorMsg = 'Impossibile caricare i dati. Verifica che il backend sia attivo.';
+      setError(errorMsg);
+      toast.error(errorMsg);
     } finally {
       setLoading(false);
       setLoadingSessions(false);
@@ -147,41 +152,47 @@ export function Dashboard() {
           {/* Date Inputs */}
           <div className="flex flex-wrap items-center gap-4">
             <div className="flex items-center gap-2">
-              <Calendar size={18} className="text-gray-400" />
-              <label className="text-sm text-gray-600">Da:</label>
+              <Calendar size={18} className="text-gray-400" aria-hidden="true" />
+              <label htmlFor="start-date" className="text-sm text-gray-600">Da:</label>
               <input
+                id="start-date"
                 type="date"
                 value={startDate}
                 onChange={(e) => setStartDate(e.target.value)}
                 className="px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                aria-label="Data inizio periodo"
               />
             </div>
             <div className="flex items-center gap-2">
-              <label className="text-sm text-gray-600">A:</label>
+              <label htmlFor="end-date" className="text-sm text-gray-600">A:</label>
               <input
+                id="end-date"
                 type="date"
                 value={endDate}
                 onChange={(e) => setEndDate(e.target.value)}
                 className="px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                aria-label="Data fine periodo"
               />
             </div>
             <button
               onClick={fetchData}
               disabled={loading}
               className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors disabled:opacity-50"
+              aria-label="Aggiorna grafici con nuove date"
             >
-              <RefreshCw size={16} className={loading ? 'animate-spin' : ''} />
+              <RefreshCw size={16} className={loading ? 'animate-spin' : ''} aria-hidden="true" />
               Aggiorna
             </button>
           </div>
 
           {/* Quick Presets */}
-          <div className="flex flex-wrap gap-2">
+          <div className="flex flex-wrap gap-2" role="group" aria-label="Presets periodo rapido">
             {datePresets.map((preset) => (
               <button
                 key={preset.days}
                 onClick={() => applyPreset(preset.days)}
                 className="px-3 py-1.5 text-xs font-medium text-gray-600 bg-gray-100 rounded-full hover:bg-gray-200 transition-colors"
+                aria-label={`Seleziona ${preset.label.toLowerCase()}`}
               >
                 {preset.label}
               </button>

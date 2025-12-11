@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import ReactMarkdown from 'react-markdown';
 import rehypeSanitize from 'rehype-sanitize';
+import toast from 'react-hot-toast';
 import { api } from '../services/api';
 import { Send, Check, X, RefreshCw, Loader2 } from 'lucide-react';
 import clsx from 'clsx';
@@ -30,12 +31,19 @@ export const EmailGenerator = ({ onActionComplete }) => {
   const handleGenerate = async () => {
     setLoading(true);
     setError(null);
+    
+    const toastId = toast.loading('Generating email report...');
+    
     try {
       const res = await api.generateEmail();
       setDraft(res.data.content);
       if (onActionComplete) onActionComplete();
+      
+      toast.success('Email report generated successfully!', { id: toastId });
     } catch (err) {
-      setError('Failed to generate email. Check backend logs.');
+      const errorMsg = err.response?.data?.error || 'Failed to generate email. Check backend logs.';
+      setError(errorMsg);
+      toast.error(errorMsg, { id: toastId });
     } finally {
       setLoading(false);
     }
@@ -43,26 +51,43 @@ export const EmailGenerator = ({ onActionComplete }) => {
 
   const handleApprove = async () => {
     setLoading(true);
+    
+    const toastId = toast.loading('Approving draft...');
+    
     try {
       await api.approveDraft();
       setDraft(null);
       if (onActionComplete) onActionComplete();
-      alert('Draft approved and archived!');
+      
+      toast.success('Draft approved and archived successfully! 🎉', { 
+        id: toastId,
+        duration: 5000 
+      });
     } catch (err) {
-      setError('Failed to approve draft.');
+      const errorMsg = err.response?.data?.message || 'Failed to approve draft.';
+      setError(errorMsg);
+      toast.error(errorMsg, { id: toastId });
     } finally {
       setLoading(false);
     }
   };
 
   const handleReject = async () => {
-    if (!confirm('Are you sure you want to discard this draft?')) return;
+    // Use toast for confirmation instead of browser confirm
+    const confirmReject = window.confirm('Are you sure you want to discard this draft?');
+    if (!confirmReject) return;
+    
     setLoading(true);
+    const toastId = toast.loading('Discarding draft...');
+    
     try {
       await api.rejectDraft();
       setDraft(null);
+      toast.success('Draft discarded', { id: toastId });
     } catch (err) {
-      setError('Failed to reject draft.');
+      const errorMsg = err.response?.data?.error || 'Failed to reject draft.';
+      setError(errorMsg);
+      toast.error(errorMsg, { id: toastId });
     } finally {
       setLoading(false);
     }
@@ -80,8 +105,13 @@ export const EmailGenerator = ({ onActionComplete }) => {
               "flex items-center px-4 py-2 rounded-lg text-white font-medium transition-colors",
               loading ? "bg-blue-300 cursor-not-allowed" : "bg-blue-500 hover:bg-blue-600"
             )}
+            aria-label="Generate new daily report email"
           >
-            {loading ? <Loader2 className="animate-spin mr-2" size={18} /> : <RefreshCw className="mr-2" size={18} />}
+            {loading ? (
+              <Loader2 className="animate-spin mr-2" size={18} aria-hidden="true" />
+            ) : (
+              <RefreshCw className="mr-2" size={18} aria-hidden="true" />
+            )}
             Generate New Report
           </button>
         )}
@@ -104,16 +134,22 @@ export const EmailGenerator = ({ onActionComplete }) => {
               onClick={handleReject}
               disabled={loading}
               className="flex items-center px-4 py-2 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50 font-medium"
+              aria-label="Discard current draft"
             >
-              <X className="mr-2" size={18} />
+              <X className="mr-2" size={18} aria-hidden="true" />
               Discard
             </button>
             <button
               onClick={handleApprove}
               disabled={loading}
               className="flex items-center px-6 py-2 rounded-lg bg-green-500 hover:bg-green-600 text-white font-medium"
+              aria-label="Approve draft and archive it"
             >
-              {loading ? <Loader2 className="animate-spin mr-2" size={18} /> : <Check className="mr-2" size={18} />}
+              {loading ? (
+                <Loader2 className="animate-spin mr-2" size={18} aria-hidden="true" />
+              ) : (
+                <Check className="mr-2" size={18} aria-hidden="true" />
+              )}
               Approve & Archive
             </button>
           </div>

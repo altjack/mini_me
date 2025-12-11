@@ -40,8 +40,13 @@ export const LoginPage = () => {
           <form onSubmit={handleSubmit} className="space-y-5">
             {/* Error Message */}
             {error && (
-              <div className="flex items-center gap-2 p-3 bg-red-50 border border-red-100 rounded-lg text-red-700 text-sm">
-                <AlertCircle size={18} className="flex-shrink-0" />
+              <div 
+                id="login-error"
+                className="flex items-center gap-2 p-3 bg-red-50 border border-red-100 rounded-lg text-red-700 text-sm"
+                role="alert"
+                aria-live="polite"
+              >
+                <AlertCircle size={18} className="flex-shrink-0" aria-hidden="true" />
                 <span>{error}</span>
               </div>
             )}
@@ -52,7 +57,7 @@ export const LoginPage = () => {
                 Username
               </label>
               <div className="relative">
-                <User className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
+                <User className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} aria-hidden="true" />
                 <input
                   id="username"
                   type="text"
@@ -62,6 +67,7 @@ export const LoginPage = () => {
                   required
                   disabled={isLoading}
                   className="w-full pl-10 pr-4 py-2.5 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all disabled:bg-gray-50 disabled:text-gray-500"
+                  aria-describedby={error ? "login-error" : undefined}
                 />
               </div>
             </div>
@@ -72,7 +78,7 @@ export const LoginPage = () => {
                 Password
               </label>
               <div className="relative">
-                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
+                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} aria-hidden="true" />
                 <input
                   id="password"
                   type="password"
@@ -82,6 +88,7 @@ export const LoginPage = () => {
                   required
                   disabled={isLoading}
                   className="w-full pl-10 pr-4 py-2.5 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all disabled:bg-gray-50 disabled:text-gray-500"
+                  aria-describedby={error ? "login-error" : undefined}
                 />
               </div>
             </div>
@@ -91,10 +98,11 @@ export const LoginPage = () => {
               type="submit"
               disabled={isLoading}
               className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white font-medium py-2.5 rounded-lg transition-colors flex items-center justify-center gap-2"
+              aria-label={isLoading ? "Signing in, please wait" : "Sign in to dashboard"}
             >
               {isLoading ? (
                 <>
-                  <Loader2 className="animate-spin" size={18} />
+                  <Loader2 className="animate-spin" size={18} aria-hidden="true" />
                   Signing in...
                 </>
               ) : (

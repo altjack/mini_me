@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import toast from 'react-hot-toast';
 import { api } from '../services/api';
 import { Database, Calendar, Loader2, CheckCircle, AlertCircle } from 'lucide-react';
 import { format, subDays } from 'date-fns';
@@ -14,18 +15,29 @@ export const BackfillPanel = ({ onActionComplete }) => {
     setLoading(true);
     setResult(null);
     
+    const toastId = toast.loading('Backfilling data...');
+    
     try {
       const res = await api.backfill(startDate, endDate);
       setResult({
         success: true,
         data: res.data
       });
+      
       if (onActionComplete) onActionComplete();
+      
+      const successCount = res.data.data?.successful || 0;
+      toast.success(`Backfill completed! ${successCount} dates processed successfully.`, { 
+        id: toastId,
+        duration: 5000 
+      });
     } catch (err) {
+      const errorMsg = err.response?.data?.error || 'Backfill failed';
       setResult({
         success: false,
-        error: err.response?.data?.error || 'Backfill failed'
+        error: errorMsg
       });
+      toast.error(errorMsg, { id: toastId });
     } finally {
       setLoading(false);
     }

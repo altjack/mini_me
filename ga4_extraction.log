@@ -8189,3 +8189,57 @@ ISTRUZIONI:
 2025-12-05 20:47:23,956 - INFO - Database connesso: data/ga4_data.db
 2025-12-05 20:47:23,958 - INFO - Connessione database chiusa
 2025-12-05 20:47:23,958 - INFO - 127.0.0.1 - - [05/Dec/2025 20:47:23] "GET /api/sessions/range?start_date=2025-10-21&end_date=2025-12-04 HTTP/1.1" 200 -
+2025-12-11 11:57:19,751 - INFO - [31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m
+ * Running on all addresses (0.0.0.0)
+ * Running on http://127.0.0.1:5001
+ * Running on http://192.168.1.157:5001
+2025-12-11 11:57:19,752 - INFO - [33mPress CTRL+C to quit[0m
+2025-12-11 11:57:23,696 - INFO - 127.0.0.1 - - [11/Dec/2025 11:57:23] "[33mOPTIONS /api/auth/login HTTP/1.1[0m" 404 -
+2025-12-11 11:57:42,043 - INFO - 127.0.0.1 - - [11/Dec/2025 11:57:42] "[33mOPTIONS /api/auth/login HTTP/1.1[0m" 404 -
+2025-12-11 11:59:16,028 - INFO - [31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m
+ * Running on all addresses (0.0.0.0)
+ * Running on http://127.0.0.1:5001
+ * Running on http://192.168.1.157:5001
+2025-12-11 11:59:16,028 - INFO - [33mPress CTRL+C to quit[0m
+2025-12-11 11:59:25,211 - INFO - 127.0.0.1 - - [11/Dec/2025 11:59:25] "[35m[1mOPTIONS /api/auth/login HTTP/1.1[0m" 204 -
+2025-12-11 11:59:25,217 - INFO - 127.0.0.1 - - [11/Dec/2025 11:59:25] "[35m[1mPOST /api/auth/login HTTP/1.1[0m" 503 -
+2025-12-11 11:59:43,304 - INFO - 127.0.0.1 - - [11/Dec/2025 11:59:43] "[35m[1mOPTIONS /api/auth/login HTTP/1.1[0m" 204 -
+2025-12-11 11:59:43,315 - INFO - 127.0.0.1 - - [11/Dec/2025 11:59:43] "[35m[1mPOST /api/auth/login HTTP/1.1[0m" 503 -
+2025-12-11 12:43:05,524 - INFO - 127.0.0.1 - - [11/Dec/2025 12:43:05] "[35m[1mOPTIONS /api/auth/login HTTP/1.1[0m" 204 -
+2025-12-11 12:43:05,531 - INFO - 127.0.0.1 - - [11/Dec/2025 12:43:05] "[35m[1mPOST /api/auth/login HTTP/1.1[0m" 503 -
+2025-12-11 12:43:06,165 - INFO - 127.0.0.1 - - [11/Dec/2025 12:43:06] "[35m[1mPOST /api/auth/login HTTP/1.1[0m" 503 -
+2025-12-11 16:24:49,547 - INFO - SQLite database ready: data/ga4_data.db
+2025-12-11 16:24:49,548 - INFO - Database pool initialized: sqlite, size=10
+2025-12-11 17:29:24,924 - INFO - SQLite database ready: data/ga4_data.db
+2025-12-11 17:29:24,925 - INFO - Database pool initialized: sqlite, size=10
+2025-12-11 17:29:24,987 - INFO - [31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m
+ * Running on all addresses (0.0.0.0)
+ * Running on http://127.0.0.1:5001
+ * Running on http://192.168.1.157:5001
+2025-12-11 17:29:24,987 - INFO - [33mPress CTRL+C to quit[0m
+2025-12-11 17:29:53,943 - INFO - Database connesso: SQLite (data/ga4_data.db)
+2025-12-11 17:29:53,946 - INFO - Connessione database chiusa
+2025-12-11 17:29:53,947 - INFO - 127.0.0.1 - - [11/Dec/2025 17:29:53] "GET /api/stats HTTP/1.1" 200 -
+2025-12-11 17:29:53,951 - INFO - Database connesso: SQLite (data/ga4_data.db)
+2025-12-11 17:29:53,951 - INFO - Connessione database chiusa
+2025-12-11 17:29:53,952 - INFO - 127.0.0.1 - - [11/Dec/2025 17:29:53] "GET /api/stats HTTP/1.1" 200 -
+2025-12-11 17:29:53,980 - INFO - 127.0.0.1 - - [11/Dec/2025 17:29:53] "GET /api/draft HTTP/1.1" 200 -
+2025-12-11 17:29:53,991 - INFO - 127.0.0.1 - - [11/Dec/2025 17:29:53] "GET /api/draft HTTP/1.1" 200 -
+2025-12-11 17:29:54,004 - INFO - Database connesso: SQLite (data/ga4_data.db)
+2025-12-11 17:29:54,005 - INFO - Connessione database chiusa
+2025-12-11 17:29:54,005 - INFO - 127.0.0.1 - - [11/Dec/2025 17:29:54] "GET /api/stats HTTP/1.1" 200 -
+2025-12-11 17:29:54,033 - INFO - Database connesso: SQLite (data/ga4_data.db)
+2025-12-11 17:29:54,034 - INFO - Connessione database chiusa
+2025-12-11 17:29:54,035 - INFO - 127.0.0.1 - - [11/Dec/2025 17:29:54] "GET /api/stats HTTP/1.1" 200 -
+2025-12-11 17:30:25,441 - INFO - Database connesso: SQLite (data/ga4_data.db)
+2025-12-11 17:30:25,443 - INFO - Connessione database chiusa
+2025-12-11 17:30:25,443 - INFO - 127.0.0.1 - - [11/Dec/2025 17:30:25] "GET /api/metrics/range?start_date=2025-10-27&end_date=2025-12-10 HTTP/1.1" 200 -
+2025-12-11 17:30:25,451 - INFO - Database connesso: SQLite (data/ga4_data.db)
+2025-12-11 17:30:25,451 - INFO - Connessione database chiusa
+2025-12-11 17:30:25,452 - INFO - 127.0.0.1 - - [11/Dec/2025 17:30:25] "GET /api/metrics/range?start_date=2025-10-27&end_date=2025-12-10 HTTP/1.1" 200 -
+2025-12-11 17:30:25,454 - INFO - Database connesso: SQLite (data/ga4_data.db)
+2025-12-11 17:30:25,467 - INFO - Connessione database chiusa
+2025-12-11 17:30:25,467 - INFO - 127.0.0.1 - - [11/Dec/2025 17:30:25] "GET /api/sessions/range?start_date=2025-10-27&end_date=2025-12-10 HTTP/1.1" 200 -
+2025-12-11 17:30:25,475 - INFO - Database connesso: SQLite (data/ga4_data.db)
+2025-12-11 17:30:25,477 - INFO - Connessione database chiusa
+2025-12-11 17:30:25,477 - INFO - 127.0.0.1 - - [11/Dec/2025 17:30:25] "GET /api/sessions/range?start_date=2025-10-27&end_date=2025-12-10 HTTP/1.1" 200 -
