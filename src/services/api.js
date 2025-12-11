@@ -8,12 +8,66 @@ import axios from 'axios';
 const API_URL = import.meta.env.VITE_API_URL || 
   (window.location.hostname === 'localhost' ? 'http://localhost:5001/api' : '/api');
 
+// LocalStorage keys for cross-domain token storage
+const TOKEN_KEY = 'auth_token';
+const TOKEN_EXPIRY_KEY = 'auth_token_expiry';
+
 // =============================================================================
 // NOTES ON AUTHENTICATION
 // =============================================================================
-// Authentication is now handled via HttpOnly cookies set by the backend.
-// This is more secure than localStorage as cookies cannot be accessed by JavaScript,
-// protecting against XSS attacks.
+// Hybrid authentication system:
+// - Primary: HttpOnly cookies (most secure, for same-domain deployments)
+// - Fallback: Bearer token in localStorage (for cross-domain like Vercel + separate backend)
+//
+// The backend returns the token in the response body AND sets a cookie.
+// Frontend stores token in localStorage as fallback for cross-domain scenarios.
+
+// =============================================================================
+// TOKEN HELPERS
+// =============================================================================
+
+/**
+ * Check if the stored token is expired
+ */
+export const isTokenExpired = () => {
+  const expiry = localStorage.getItem(TOKEN_EXPIRY_KEY);
+  if (!expiry) return true;
+  
+  const expiryDate = new Date(expiry);
+  const now = new Date();
+  
+  // Add 1 minute buffer
+  return now >= new Date(expiryDate.getTime() - 60000);
+};
+
+/**
+ * Get the current auth token from localStorage
+ */
+export const getToken = () => {
+  if (isTokenExpired()) {
+    // Clear expired token
+    localStorage.removeItem(TOKEN_KEY);
+    localStorage.removeItem(TOKEN_EXPIRY_KEY);
+    return null;
+  }
+  return localStorage.getItem(TOKEN_KEY);
+};
+
+/**
+ * Store token in localStorage
+ */
+export const setToken = (token, expiresAt) => {
+  localStorage.setItem(TOKEN_KEY, token);
+  localStorage.setItem(TOKEN_EXPIRY_KEY, expiresAt);
+};
+
+/**
+ * Clear token from localStorage
+ */
+export const clearToken = () => {
+  localStorage.removeItem(TOKEN_KEY);
+  localStorage.removeItem(TOKEN_EXPIRY_KEY);
+};
 
 // =============================================================================
 // AXIOS INSTANCE
@@ -21,15 +75,27 @@ const API_URL = import.meta.env.VITE_API_URL ||
 
 const apiClient = axios.create({
   baseURL: API_URL,
-  withCredentials: true,  // Send cookies with requests (HttpOnly cookie support)
+  withCredentials: true,  // Send cookies with requests (for same-domain)
 });
 
 // =============================================================================
-// REQUEST INTERCEPTOR - No token needed (using HttpOnly cookies)
+// REQUEST INTERCEPTOR - Add Bearer token as fallback
 // =============================================================================
 
-// Cookies are automatically sent by the browser with withCredentials: true
-// No need to manually add Authorization header
+apiClient.interceptors.request.use(
+  (config) => {
+    // Add Bearer token as fallback for cross-domain
+    // Cookie will be used if available (same-domain), otherwise Bearer token
+    const token = getToken();
+    if (token) {
+      config.headers['Authorization'] = `Bearer ${token}`;
+    }
+    return config;
+  },
+  (error) => {
+    return Promise.reject(error);
+  }
+);
 
 // =============================================================================
 // RESPONSE INTERCEPTOR - Handle 401 errors (redirect to login)
@@ -39,7 +105,8 @@ apiClient.interceptors.response.use(
   (response) => response,
   (error) => {
     if (error.response?.status === 401) {
-      // Cookie is handled by backend - just trigger re-authentication
+      // Clear token and trigger re-authentication
+      clearToken();
       window.dispatchEvent(new CustomEvent('auth:unauthorized'));
     }
     return Promise.reject(error);

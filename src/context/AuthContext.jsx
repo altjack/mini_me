@@ -1,16 +1,16 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
-import { api } from '../services/api';
+import { api, setToken, clearToken, getToken, isTokenExpired } from '../services/api';
 
 // =============================================================================
 // AUTH CONTEXT
 // =============================================================================
 // 
-// Authentication is now handled via HttpOnly cookies.
-// This provides better security against XSS attacks as cookies cannot be 
-// accessed by JavaScript.
+// Hybrid authentication system:
+// - Primary: HttpOnly cookies (most secure, for same-domain deployments)
+// - Fallback: Bearer token in localStorage (for cross-domain like Vercel)
 //
-// The backend sets/clears the cookie on login/logout.
-// The frontend simply tracks authentication state and user info.
+// The backend returns token in response body AND sets a cookie.
+// Frontend stores token in localStorage as fallback.
 // =============================================================================
 
 const AuthContext = createContext(null);
@@ -25,18 +25,30 @@ export const AuthProvider = ({ children }) => {
   const [isLoading, setIsLoading] = useState(true);
 
   /**
-   * Initialize auth state by checking with backend
-   * (cookie is HttpOnly so we can't check it client-side)
+   * Initialize auth state
+   * First check localStorage token, then verify with backend
    */
   useEffect(() => {
     const checkAuth = async () => {
+      // Quick check: do we have a valid token in localStorage?
+      const token = getToken();
+      
+      if (!token) {
+        // No token, definitely not authenticated
+        setIsAuthenticated(false);
+        setUser(null);
+        setIsLoading(false);
+        return;
+      }
+      
+      // Token exists, verify it's still valid with backend
       try {
-        // Try to fetch stats as a way to check if authenticated
         await api.getStats();
-        // If successful, we're authenticated (cookie is valid)
+        // Token is valid
         setIsAuthenticated(true);
       } catch (error) {
-        // If 401, not authenticated
+        // Token invalid or expired
+        clearToken();
         setIsAuthenticated(false);
         setUser(null);
       } finally {
@@ -56,7 +68,12 @@ export const AuthProvider = ({ children }) => {
       const response = await api.login(username, password);
       
       if (response.data.success) {
-        // Backend sets HttpOnly cookie automatically
+        // Store token in localStorage (for cross-domain fallback)
+        if (response.data.token) {
+          setToken(response.data.token, response.data.expires_at);
+        }
+        
+        // Backend also sets HttpOnly cookie (for same-domain)
         setIsAuthenticated(true);
         setUser(response.data.user || username);
         return { success: true };
@@ -80,10 +97,14 @@ export const AuthProvider = ({ children }) => {
   }, []);
 
   /**
-   * Logout - call backend to clear cookie
+   * Logout - clear token and call backend to clear cookie
    */
   const logout = useCallback(async () => {
+    // Clear localStorage token first
+    clearToken();
+    
     try {
+      // Call backend to clear cookie
       await api.logout();
     } catch (error) {
       console.error('Logout error:', error);

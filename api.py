@@ -485,14 +485,17 @@ def register_routes(app: Flask):
                 'error_type': 'internal'
             }), 500
         
-        # Create response with HttpOnly cookie
+        # Create response with token in body AND HttpOnly cookie
+        # Token in body: for cross-domain deployments (Vercel + separate backend)
+        # HttpOnly cookie: for same-domain deployments (more secure)
         response = jsonify({
             'success': True,
             'user': username,
+            'token': token,  # Also return token for cross-domain support
             'expires_at': expires_at.isoformat()
         })
         
-        # Set HttpOnly cookie with JWT token
+        # Set HttpOnly cookie with JWT token (works for same-domain)
         # Secure=True in production (HTTPS only), False in development
         is_production = os.getenv('FLASK_ENV') == 'production'
         
@@ -501,7 +504,7 @@ def register_routes(app: Flask):
             value=token,
             httponly=True,           # Not accessible via JavaScript (XSS protection)
             secure=is_production,    # HTTPS only in production
-            samesite='Lax',          # CSRF protection (Strict breaks some OAuth flows)
+            samesite='None' if is_production else 'Lax',  # None required for cross-domain
             max_age=JWT_EXPIRATION_DAYS * 24 * 60 * 60,  # 30 days in seconds
             path='/'
         )
