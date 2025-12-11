@@ -106,10 +106,27 @@ class handler(BaseHTTPRequestHandler):
             os.environ['JWT_SECRET_KEY'] = 'dev-secret-key-not-for-production'
         
         try:
-            # Parse request body
+            # Parse request body - handle Vercel serverless quirks
             content_length = int(self.headers.get('Content-Length', 0))
-            body = self.rfile.read(content_length) if content_length > 0 else b'{}'
-            data = json.loads(body.decode('utf-8')) if body else {}
+            
+            # Try to read body
+            if content_length > 0:
+                body = self.rfile.read(content_length)
+            else:
+                # Vercel might not set Content-Length, try reading anyway
+                try:
+                    body = self.rfile.read()
+                except Exception:
+                    body = b'{}'
+            
+            # Parse JSON
+            if body:
+                data = json.loads(body.decode('utf-8'))
+            else:
+                data = {}
+            
+            # Debug logging
+            logger.info(f"Login request: content_length={content_length}, body_len={len(body) if body else 0}")
             
             username = data.get('username', '').strip()
             password = data.get('password', '')
