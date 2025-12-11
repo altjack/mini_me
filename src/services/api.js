@@ -7,42 +7,105 @@ import axios from 'axios';
 // In produzione usa URL relativo, in locale usa porta 5001
 const API_URL = import.meta.env.VITE_API_URL || 
   (window.location.hostname === 'localhost' ? 'http://localhost:5001/api' : '/api');
-const API_KEY = import.meta.env.VITE_API_KEY || '';
 
-// Basic Auth per staging (opzionale)
-const STAGING_USER = import.meta.env.VITE_STAGING_USER || '';
-const STAGING_PASSWORD = import.meta.env.VITE_STAGING_PASSWORD || '';
+// LocalStorage keys (same as AuthContext)
+const TOKEN_KEY = 'auth_token';
+const TOKEN_EXPIRY_KEY = 'auth_token_expiry';
 
 // =============================================================================
-// AXIOS INSTANCE CON BASIC AUTH
+// TOKEN HELPERS
 // =============================================================================
 
-// Crea istanza axios con configurazione base
+/**
+ * Check if the stored token is expired
+ */
+const isTokenExpired = () => {
+  const expiry = localStorage.getItem(TOKEN_EXPIRY_KEY);
+  if (!expiry) return true;
+  
+  const expiryDate = new Date(expiry);
+  const now = new Date();
+  
+  // Add 1 minute buffer
+  return now >= new Date(expiryDate.getTime() - 60000);
+};
+
+/**
+ * Get the current auth token from localStorage
+ */
+const getToken = () => {
+  if (isTokenExpired()) {
+    // Clear expired token
+    localStorage.removeItem(TOKEN_KEY);
+    localStorage.removeItem(TOKEN_EXPIRY_KEY);
+    return null;
+  }
+  return localStorage.getItem(TOKEN_KEY);
+};
+
+// =============================================================================
+// AXIOS INSTANCE
+// =============================================================================
+
 const apiClient = axios.create({
   baseURL: API_URL,
 });
 
-// Aggiungi Basic Auth header se configurato
-if (STAGING_USER && STAGING_PASSWORD) {
-  const basicAuth = btoa(`${STAGING_USER}:${STAGING_PASSWORD}`);
-  apiClient.defaults.headers.common['Authorization'] = `Basic ${basicAuth}`;
-}
+// =============================================================================
+// REQUEST INTERCEPTOR - Add JWT token to all requests
+// =============================================================================
+
+apiClient.interceptors.request.use(
+  (config) => {
+    const token = getToken();
+    if (token) {
+      config.headers['Authorization'] = `Bearer ${token}`;
+    }
+    return config;
+  },
+  (error) => {
+    return Promise.reject(error);
+  }
+);
+
+// =============================================================================
+// RESPONSE INTERCEPTOR - Handle 401 errors (redirect to login)
+// =============================================================================
+
+apiClient.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    if (error.response?.status === 401) {
+      // Clear token and trigger re-authentication
+      localStorage.removeItem(TOKEN_KEY);
+      localStorage.removeItem(TOKEN_EXPIRY_KEY);
+      
+      // Dispatch custom event for AuthContext to handle
+      window.dispatchEvent(new CustomEvent('auth:unauthorized'));
+    }
+    return Promise.reject(error);
+  }
+);
 
 // =============================================================================
 // HELPERS
 // =============================================================================
 
-// Headers con API Key per endpoint autenticati
-const getAuthHeaders = () => ({
-  headers: API_KEY ? { 'X-API-Key': API_KEY } : {}
-});
+// Headers with JWT token (already handled by interceptor, but kept for explicit calls)
+const getAuthHeaders = () => {
+  const token = getToken();
+  return token ? { headers: { 'Authorization': `Bearer ${token}` } } : {};
+};
 
 // =============================================================================
 // API EXPORTS
 // =============================================================================
 
 export const api = {
-  // Endpoint pubblici (GET - no API key required, ma Basic Auth se staging)
+  // Authentication
+  login: (username, password) => apiClient.post('/auth/login', { username, password }),
+  
+  // Endpoint pubblici (GET - JWT required via interceptor)
   getStats: () => apiClient.get('/stats'),
   getDraft: () => apiClient.get('/draft'),
   getMetricsRange: (startDate, endDate) => {
@@ -58,14 +121,13 @@ export const api = {
     return apiClient.get(`/sessions/range?${params.toString()}`);
   },
   
-  // Endpoint protetti (POST - API key required)
-  generateEmail: () => apiClient.post('/generate', {}, getAuthHeaders()),
-  approveDraft: () => apiClient.post('/approve', {}, getAuthHeaders()),
-  rejectDraft: () => apiClient.post('/reject', {}, getAuthHeaders()),
-  backfill: (startDate, endDate) => apiClient.post(
-    '/backfill', 
-    { start_date: startDate, end_date: endDate },
-    getAuthHeaders()
-  ),
+  // Endpoint protetti (POST - JWT required via interceptor)
+  generateEmail: () => apiClient.post('/generate', {}),
+  approveDraft: () => apiClient.post('/approve', {}),
+  rejectDraft: () => apiClient.post('/reject', {}),
+  backfill: (startDate, endDate, options = {}) => apiClient.post('/backfill', { 
+    start_date: startDate, 
+    end_date: endDate,
+    ...options
+  }),
 };
-

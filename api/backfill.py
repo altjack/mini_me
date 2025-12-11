@@ -2,7 +2,7 @@
 Backfill Endpoint - POST /api/backfill
 
 Recupera dati GA4 per range di date.
-Richiede Basic Auth + API Key.
+Richiede JWT Auth.
 """
 
 import os
@@ -14,7 +14,7 @@ from datetime import datetime, timedelta
 from http.server import BaseHTTPRequestHandler
 from _utils import (
     json_response, error_response, options_response,
-    check_basic_auth, check_api_key, get_db,
+    check_jwt_auth, get_db,
     validate_date_string
 )
 import logging
@@ -26,15 +26,10 @@ class handler(BaseHTTPRequestHandler):
     
     def do_POST(self):
         """POST /api/backfill - Backfill dati GA4."""
-        # Check auth
-        auth_error = check_basic_auth(self)
-        if auth_error:
-            self._send_response(auth_error)
-            return
-        
-        api_error = check_api_key(self)
-        if api_error:
-            self._send_response(api_error)
+        # Check JWT auth
+        jwt_error = check_jwt_auth(self)
+        if jwt_error:
+            self._send_response(jwt_error)
             return
         
         try:

@@ -4,8 +4,10 @@ import { StatsCard } from './components/StatsCard';
 import { EmailGenerator } from './components/EmailGenerator';
 import { BackfillPanel } from './components/BackfillPanel';
 import { Dashboard } from './components/Dashboard';
+import { LoginPage } from './components/LoginPage';
+import { useAuth } from './context/AuthContext';
 import { api } from './services/api';
-import { LayoutDashboard, Home, BarChart3 } from 'lucide-react';
+import { LayoutDashboard, Home, BarChart3, LogOut, Loader2 } from 'lucide-react';
 
 function HomePage({ stats, loadingStats, fetchStats }) {
   return (
@@ -40,7 +42,8 @@ function HomePage({ stats, loadingStats, fetchStats }) {
   );
 }
 
-function App() {
+function AuthenticatedApp() {
+  const { logout, user } = useAuth();
   const [stats, setStats] = useState(null);
   const [loadingStats, setLoadingStats] = useState(true);
 
@@ -59,6 +62,16 @@ function App() {
   useEffect(() => {
     fetchStats();
   }, []);
+
+  // Listen for unauthorized events from API interceptor
+  useEffect(() => {
+    const handleUnauthorized = () => {
+      logout();
+    };
+    
+    window.addEventListener('auth:unauthorized', handleUnauthorized);
+    return () => window.removeEventListener('auth:unauthorized', handleUnauthorized);
+  }, [logout]);
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -98,6 +111,22 @@ function App() {
               <BarChart3 size={18} className="mr-2" />
               SWI Dashboard
             </NavLink>
+            
+            {/* User & Logout */}
+            <div className="flex items-center ml-4 pl-4 border-l border-gray-200">
+              {user && (
+                <span className="text-sm text-gray-500 mr-3">
+                  {user}
+                </span>
+              )}
+              <button
+                onClick={logout}
+                className="flex items-center px-3 py-2 rounded-lg text-sm font-medium text-gray-600 hover:bg-red-50 hover:text-red-600 transition-colors"
+                title="Sign out"
+              >
+                <LogOut size={18} />
+              </button>
+            </div>
           </nav>
         </div>
       </header>
@@ -118,6 +147,30 @@ function App() {
       </Routes>
     </div>
   );
+}
+
+function App() {
+  const { isAuthenticated, isLoading } = useAuth();
+
+  // Show loading state while checking authentication
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="flex flex-col items-center gap-4">
+          <Loader2 className="animate-spin text-blue-600" size={40} />
+          <p className="text-gray-500">Loading...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Show login page if not authenticated
+  if (!isAuthenticated) {
+    return <LoginPage />;
+  }
+
+  // Show main app if authenticated
+  return <AuthenticatedApp />;
 }
 
 export default App;

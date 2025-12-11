@@ -23,6 +23,12 @@ from typing import Optional, Dict, Any, Callable
 from functools import wraps
 from http.server import BaseHTTPRequestHandler
 
+# JWT library (optional import)
+try:
+    import jwt
+except ImportError:
+    jwt = None
+
 # Aggiungi root al path per importare moduli del progetto
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
@@ -381,6 +387,129 @@ def check_api_key(request) -> Optional[Dict]:
         )
     
     return None
+
+
+# =============================================================================
+# JWT AUTHENTICATION
+# =============================================================================
+
+JWT_ALGORITHM = "HS256"
+
+
+def get_jwt_secret() -> str:
+    """Get JWT secret key from environment."""
+    return os.getenv('JWT_SECRET_KEY', '')
+
+
+def check_jwt_auth(request) -> Optional[Dict]:
+    """
+    Verifica JWT token per endpoint protetti.
+    
+    Args:
+        request: Vercel request object (con headers)
+    
+    Returns:
+        None se auth OK, altrimenti error response dict
+    
+    SECURITY:
+    - In PRODUZIONE, JWT_SECRET_KEY DEVE essere configurata
+    - In development, permette accesso senza token (per testing)
+    - Verifica signature e expiration del token
+    """
+    request_origin = request.headers.get('Origin', '')
+    
+    # Check if JWT library is available
+    if jwt is None:
+        logger.error("PyJWT library not installed")
+        return error_response(
+            message='Authentication service unavailable',
+            status=503,
+            error_type='config',
+            internal_message='PyJWT library not installed',
+            request_origin=request_origin
+        )
+    
+    jwt_secret = get_jwt_secret()
+    
+    # SECURITY: In produzione, JWT secret DEVE essere configurata
+    if (is_production() or is_preview()) and not jwt_secret:
+        logger.critical("SECURITY: JWT_SECRET_KEY not configured in production!")
+        return error_response(
+            message='Service temporarily unavailable',
+            status=503,
+            error_type='config',
+            internal_message='JWT_SECRET_KEY not configured in production',
+            request_origin=request_origin
+        )
+    
+    # In development senza JWT secret, permetti (dev mode)
+    if is_development() and not jwt_secret:
+        return None
+    
+    # Ottieni Authorization header
+    auth_header = request.headers.get('Authorization', '')
+    
+    if not auth_header or not auth_header.startswith('Bearer '):
+        return error_response(
+            message='Authorization token required',
+            status=401,
+            error_type='authentication',
+            request_origin=request_origin
+        )
+    
+    # Estrai token
+    try:
+        token = auth_header.split(' ', 1)[1]
+    except IndexError:
+        return error_response(
+            message='Invalid authorization header format',
+            status=401,
+            error_type='authentication',
+            request_origin=request_origin
+        )
+    
+    # Verifica e decodifica token
+    try:
+        payload = jwt.decode(token, jwt_secret, algorithms=[JWT_ALGORITHM])
+        
+        # Token valido - opzionalmente possiamo salvare info utente nella request
+        # request.jwt_user = payload.get('sub')
+        
+        logger.debug(f"JWT auth successful for user: {payload.get('sub')}")
+        return None  # Auth OK
+        
+    except jwt.ExpiredSignatureError:
+        logger.warning("JWT token expired")
+        return error_response(
+            message='Token expired - please login again',
+            status=401,
+            error_type='authentication',
+            request_origin=request_origin
+        )
+    except jwt.InvalidTokenError as e:
+        logger.warning(f"Invalid JWT token: {e}")
+        return error_response(
+            message='Invalid token - please login again',
+            status=401,
+            error_type='authentication',
+            request_origin=request_origin
+        )
+
+
+def with_jwt_auth(handler: Callable) -> Callable:
+    """
+    Decorator per richiedere JWT authentication.
+    """
+    @wraps(handler)
+    def wrapper(request):
+        # Check JWT auth
+        auth_error = check_jwt_auth(request)
+        if auth_error:
+            return auth_error
+        
+        return handler(request)
+    
+    return wrapper
 
 
 # =============================================================================

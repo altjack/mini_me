@@ -2,7 +2,7 @@
 Draft Endpoint - GET /api/draft
 
 Legge il draft email corrente.
-Richiede Basic Auth.
+Richiede JWT Auth.
 """
 
 import os
@@ -12,7 +12,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from http.server import BaseHTTPRequestHandler
 from _utils import (
     json_response, options_response,
-    check_basic_auth, get_draft_path, is_development
+    check_jwt_auth, get_draft_path, is_development
 )
 
 
@@ -21,10 +21,10 @@ class handler(BaseHTTPRequestHandler):
     
     def do_GET(self):
         """GET /api/draft - Legge draft corrente."""
-        # Check auth (in dev permetti senza credenziali per evitare 401 rumorosi)
-        auth_error = None if is_development() else check_basic_auth(self)
-        if auth_error:
-            self._send_response(auth_error)
+        # Check JWT auth (in dev permetti senza credenziali)
+        jwt_error = None if is_development() else check_jwt_auth(self)
+        if jwt_error:
+            self._send_response(jwt_error)
             return
         
         draft_path = get_draft_path()

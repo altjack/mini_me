@@ -2,7 +2,7 @@
 Sessions Range Endpoint - GET /api/sessions/range
 
 Recupera sessioni (totali e per canale) per un range di date.
-Richiede Basic Auth.
+Richiede JWT Auth.
 """
 
 import os
@@ -16,7 +16,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from _utils import (
     json_response, error_response, options_response,
-    check_basic_auth, get_db
+    check_jwt_auth, get_db
 )
 
 
@@ -29,10 +29,10 @@ class handler(BaseHTTPRequestHandler):
     
     def do_GET(self):
         """GET /api/sessions/range - Sessioni per range date."""
-        # Check auth
-        auth_error = check_basic_auth(self)
-        if auth_error:
-            self._send_response(auth_error)
+        # Check JWT auth
+        jwt_error = check_jwt_auth(self)
+        if jwt_error:
+            self._send_response(jwt_error)
             return
         
         try:
