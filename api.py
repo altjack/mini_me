@@ -15,12 +15,18 @@ import os
 import sys
 import argparse
 import base64
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Optional
 from functools import wraps
 
 from flask import Flask, jsonify, request, Response
 from flask_cors import CORS
+
+# JWT library
+try:
+    import jwt
+except ImportError:
+    jwt = None
 
 from workflows.service import DailyReportWorkflow
 from workflows.config import ConfigLoader, ConfigurationError
@@ -204,23 +210,75 @@ def require_basic_auth(f):
     return decorated
 
 
+# =============================================================================
+# JWT AUTHENTICATION
+# =============================================================================
+
+JWT_ALGORITHM = "HS256"
+JWT_EXPIRATION_DAYS = 30
+
+
+def get_jwt_secret() -> str:
+    """Get JWT secret key from environment."""
+    return os.getenv('JWT_SECRET_KEY', 'dev-secret-key-not-for-production')
+
+
+def generate_jwt_token(username: str) -> tuple:
+    """Generate a JWT token for the authenticated user."""
+    if jwt is None:
+        raise RuntimeError("PyJWT library not installed")
+    
+    secret = get_jwt_secret()
+    now = datetime.now(timezone.utc)
+    expires_at = now + timedelta(days=JWT_EXPIRATION_DAYS)
+    
+    payload = {
+        "sub": username,
+        "iat": int(now.timestamp()),
+        "exp": int(expires_at.timestamp())
+    }
+    
+    token = jwt.encode(payload, secret, algorithm=JWT_ALGORITHM)
+    return token, expires_at
+
+
+def verify_jwt_token(token: str) -> Optional[dict]:
+    """Verify a JWT token and return payload if valid."""
+    if jwt is None:
+        return None
+    
+    try:
+        secret = get_jwt_secret()
+        payload = jwt.decode(token, secret, algorithms=[JWT_ALGORITHM])
+        return payload
+    except jwt.ExpiredSignatureError:
+        return None
+    except jwt.InvalidTokenError:
+        return None
+
+
 def apply_basic_auth_to_app(app: Flask):
     """
-    Applica Basic Auth a tutti gli endpoint (tranne health check).
+    Applica autenticazione a tutti gli endpoint (tranne health check e login).
     
+    Accetta sia Basic Auth che JWT Bearer token.
     Chiamare dopo register_routes() per wrappare tutti gli endpoint.
     """
     staging_user = os.getenv('STAGING_USER')
     staging_password = os.getenv('STAGING_PASSWORD')
     
-    # Skip se non configurato
+    # Skip se non configurato (dev mode senza auth)
     if not staging_user or not staging_password:
         return
     
     @app.before_request
-    def check_basic_auth():
+    def check_auth():
         # Skip health check
         if request.endpoint == 'health_check':
+            return None
+        
+        # Skip login endpoint
+        if request.endpoint == 'login':
             return None
         
         # Skip OPTIONS (CORS preflight)
@@ -229,30 +287,52 @@ def apply_basic_auth_to_app(app: Flask):
         
         auth_header = request.headers.get('Authorization')
         
-        if not auth_header or not auth_header.startswith('Basic '):
+        if not auth_header:
             return Response(
                 'Authentication required',
                 401,
                 {'WWW-Authenticate': 'Basic realm="Daily Report Staging"'}
             )
         
-        try:
-            encoded_credentials = auth_header.split(' ', 1)[1]
-            decoded = base64.b64decode(encoded_credentials).decode('utf-8')
-            username, password = decoded.split(':', 1)
-        except (ValueError, UnicodeDecodeError):
-            return Response(
-                'Invalid authentication format',
-                401,
-                {'WWW-Authenticate': 'Basic realm="Daily Report Staging"'}
-            )
+        # Check JWT Bearer token first
+        if auth_header.startswith('Bearer '):
+            token = auth_header.split(' ', 1)[1]
+            payload = verify_jwt_token(token)
+            if payload:
+                return None  # JWT valid, allow request
+            return jsonify({
+                'success': False,
+                'error': 'Invalid or expired token',
+                'error_type': 'authentication'
+            }), 401
         
-        if username != staging_user or password != staging_password:
+        # Fall back to Basic Auth
+        if auth_header.startswith('Basic '):
+            try:
+                encoded_credentials = auth_header.split(' ', 1)[1]
+                decoded = base64.b64decode(encoded_credentials).decode('utf-8')
+                username, password = decoded.split(':', 1)
+            except (ValueError, UnicodeDecodeError):
+                return Response(
+                    'Invalid authentication format',
+                    401,
+                    {'WWW-Authenticate': 'Basic realm="Daily Report Staging"'}
+                )
+            
+            if username == staging_user and password == staging_password:
+                return None  # Basic Auth valid
+            
             return Response(
                 'Invalid credentials',
                 401,
                 {'WWW-Authenticate': 'Basic realm="Daily Report Staging"'}
             )
+        
+        return Response(
+            'Authentication required',
+            401,
+            {'WWW-Authenticate': 'Basic realm="Daily Report Staging"'}
+        )
 
 
 def handle_errors(f):
@@ -288,6 +368,65 @@ def handle_errors(f):
 
 def register_routes(app: Flask):
     """Registra tutti gli endpoint"""
+    
+    @app.route('/api/auth/login', methods=['POST', 'OPTIONS'])
+    def login():
+        """
+        POST /api/auth/login - Authenticate and return JWT token.
+        
+        Request body: {"username": "...", "password": "..."}
+        Response: {"success": true, "token": "...", "expires_at": "...", "user": "..."}
+        """
+        if request.method == 'OPTIONS':
+            return '', 204
+        
+        # Check if JWT library is available
+        if jwt is None:
+            return jsonify({
+                'success': False,
+                'error': 'JWT library not installed',
+                'error_type': 'config'
+            }), 503
+        
+        data = request.get_json() or {}
+        username = data.get('username', '').strip()
+        password = data.get('password', '')
+        
+        if not username or not password:
+            return jsonify({
+                'success': False,
+                'error': 'Username and password are required',
+                'error_type': 'validation'
+            }), 400
+        
+        # Get expected credentials
+        expected_user = os.getenv('STAGING_USER', 'admin')
+        expected_password = os.getenv('STAGING_PASSWORD', 'admin')
+        
+        # Verify credentials
+        if username != expected_user or password != expected_password:
+            return jsonify({
+                'success': False,
+                'error': 'Invalid username or password',
+                'error_type': 'authentication'
+            }), 401
+        
+        # Generate JWT token
+        try:
+            token, expires_at = generate_jwt_token(username)
+        except RuntimeError as e:
+            return jsonify({
+                'success': False,
+                'error': str(e),
+                'error_type': 'internal'
+            }), 500
+        
+        return jsonify({
+            'success': True,
+            'token': token,
+            'expires_at': expires_at.isoformat(),
+            'user': username
+        })
     
     @app.route('/api/health', methods=['GET'])
     def health_check():
