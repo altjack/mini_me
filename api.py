@@ -308,17 +308,17 @@ def apply_basic_auth_to_app(app: Flask):
         
         # Fall back to Basic Auth
         if auth_header.startswith('Basic '):
-            try:
-                encoded_credentials = auth_header.split(' ', 1)[1]
-                decoded = base64.b64decode(encoded_credentials).decode('utf-8')
-                username, password = decoded.split(':', 1)
-            except (ValueError, UnicodeDecodeError):
-                return Response(
-                    'Invalid authentication format',
-                    401,
-                    {'WWW-Authenticate': 'Basic realm="Daily Report Staging"'}
-                )
-            
+        try:
+            encoded_credentials = auth_header.split(' ', 1)[1]
+            decoded = base64.b64decode(encoded_credentials).decode('utf-8')
+            username, password = decoded.split(':', 1)
+        except (ValueError, UnicodeDecodeError):
+            return Response(
+                'Invalid authentication format',
+                401,
+                {'WWW-Authenticate': 'Basic realm="Daily Report Staging"'}
+            )
+        
             if username == staging_user and password == staging_password:
                 return None  # Basic Auth valid
             
@@ -330,9 +330,9 @@ def apply_basic_auth_to_app(app: Flask):
         
         return Response(
             'Authentication required',
-            401,
-            {'WWW-Authenticate': 'Basic realm="Daily Report Staging"'}
-        )
+                401,
+                {'WWW-Authenticate': 'Basic realm="Daily Report Staging"'}
+            )
 
 
 def handle_errors(f):
