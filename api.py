@@ -100,6 +100,29 @@ def create_app(config: Optional[dict] = None) -> Flask:
     db_path = ConfigLoader.get_database_path(config)
     get_pool(db_path, pool_size=10)
     
+    # Ritorna connessione al pool dopo ogni request
+    @app.teardown_request
+    def return_db_to_pool(exception=None):
+        """
+        Ritorna connessione database al pool dopo ogni request.
+        
+        Chiama __exit__ sul context manager per chiudere correttamente
+        la connessione e ritorna al pool.
+        """
+        from flask import g
+        
+        if hasattr(g, 'pool_conn_context') and hasattr(g, 'raw_conn'):
+            try:
+                # Chiama __exit__ del context manager
+                g.pool_conn_context.__exit__(None, None, None)
+            except Exception as e:
+                logger.error(f"Error returning connection to pool: {e}")
+            finally:
+                # Cleanup g object
+                g.pop('pool_conn_context', None)
+                g.pop('raw_conn', None)
+                g.pop('db', None)
+    
     # Cleanup pool on shutdown
     @app.teardown_appcontext
     def shutdown_pool(exception=None):
@@ -131,14 +154,31 @@ def get_db():
     """
     Factory per connessione database con connection pooling.
     
-    Usa connection pool per riutilizzare connessioni e migliorare performance.
-    """
-    config = get_config()
-    db_path = ConfigLoader.get_database_path(config)
+    Usa Flask 'g' object per gestire connessioni per-request.
+    Ottiene connessioni dal pool e le ritorna automaticamente al termine.
     
-    # Usa pool per efficienza (riuso connessioni)
-    # Il pool è singleton e thread-safe
-    return GA4Database(db_path)
+    Returns:
+        GA4Database instance con connessione dal pool
+    """
+    from flask import g
+    
+    # Check se già abbiamo una connessione per questa request
+    if 'db' not in g:
+        config = get_config()
+        db_path = ConfigLoader.get_database_path(config)
+        
+        # Ottieni pool (singleton thread-safe)
+        pool = get_pool(db_path, pool_size=10)
+        
+        # Ottieni connessione dal pool usando context manager
+        g.pool_conn_context = pool.get_connection()
+        g.raw_conn = g.pool_conn_context.__enter__()
+        
+        # Crea GA4Database con connessione dal pool
+        # owns_connection=False perché il pool gestisce il ciclo di vita
+        g.db = GA4Database(conn=g.raw_conn, owns_connection=False)
+    
+    return g.db
 
 
 def require_api_key(f):

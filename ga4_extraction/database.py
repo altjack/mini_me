@@ -67,27 +67,48 @@ def get_database_connection(db_url: Optional[str] = None):
 class GA4Database:
     """Manager per database delle metriche GA4 (SQLite/PostgreSQL)."""
     
-    def __init__(self, db_path: Optional[str] = None):
+    def __init__(self, db_path: Optional[str] = None, conn=None, owns_connection: bool = True):
         """
         Inizializza connessione al database.
         
         Args:
             db_path: Percorso file database SQLite o URL PostgreSQL.
                      Se None, usa DATABASE_URL env var o default SQLite.
+            conn: Connessione esistente da riutilizzare (per pooling).
+                  Se fornita, db_path viene ignorato.
+            owns_connection: Se False, la connessione non verrà chiusa in close().
+                           Utile quando si usa connection pooling.
         """
-        # Controlla se è un URL PostgreSQL o path SQLite
-        database_url = os.getenv('DATABASE_URL')
+        self._owns_connection = owns_connection
         
-        if database_url and database_url.startswith(('postgres://', 'postgresql://')):
-            # PostgreSQL mode
-            self.conn, self.db_type = get_database_connection(database_url)
-            self.db_path = database_url
-            logger.info("Database connesso: PostgreSQL (cloud)")
+        if conn is not None:
+            # Usa connessione fornita (da pool)
+            self.conn = conn
+            self.db_path = "pooled"
+            # Detect db type dalla connessione
+            # PostgreSQL connections have 'server_version', SQLite don't
+            try:
+                import psycopg2
+                self.db_type = 'postgresql' if isinstance(conn, psycopg2.extensions.connection) else 'sqlite'
+            except ImportError:
+                # Se psycopg2 non è installato, assume SQLite
+                self.db_type = 'sqlite'
+            logger.debug(f"Database using pooled connection ({self.db_type})")
         else:
-            # SQLite mode (locale)
-            self.db_path = db_path or "data/ga4_data.db"
-            self.conn, self.db_type = get_database_connection(f"sqlite:///{self.db_path}")
-            logger.info(f"Database connesso: SQLite ({self.db_path})")
+            # Crea nuova connessione (comportamento originale)
+            # Controlla se è un URL PostgreSQL o path SQLite
+            database_url = os.getenv('DATABASE_URL')
+            
+            if database_url and database_url.startswith(('postgres://', 'postgresql://')):
+                # PostgreSQL mode
+                self.conn, self.db_type = get_database_connection(database_url)
+                self.db_path = database_url
+                logger.info("Database connesso: PostgreSQL (cloud)")
+            else:
+                # SQLite mode (locale)
+                self.db_path = db_path or "data/ga4_data.db"
+                self.conn, self.db_type = get_database_connection(f"sqlite:///{self.db_path}")
+                logger.info(f"Database connesso: SQLite ({self.db_path})")
         
         self._placeholder = '%s' if self.db_type == 'postgresql' else '?'
     
@@ -755,10 +776,17 @@ class GA4Database:
             return False
     
     def close(self):
-        """Chiude connessione database."""
-        if self.conn:
+        """
+        Chiude connessione database.
+        
+        Se la connessione proviene da un pool (owns_connection=False),
+        NON viene chiusa qui ma ritornata al pool dal chiamante.
+        """
+        if self.conn and self._owns_connection:
             self.conn.close()
             logger.info("Connessione database chiusa")
+        elif self.conn and not self._owns_connection:
+            logger.debug("Pooled connection not closed (managed by pool)")
     
     def __enter__(self):
         """Context manager entry."""
