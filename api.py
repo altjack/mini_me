@@ -33,6 +33,7 @@ from workflows.config import ConfigLoader, ConfigurationError
 from workflows.logging import LoggerFactory
 from workflows.result_types import StepStatus
 from ga4_extraction.database import GA4Database
+from db_pool import get_pool, close_pool
 
 
 # =============================================================================
@@ -95,6 +96,18 @@ def create_app(config: Optional[dict] = None) -> Flask:
     # Applica Basic Auth per staging (se configurato)
     apply_basic_auth_to_app(app)
     
+    # Inizializza database pool
+    db_path = ConfigLoader.get_database_path(config)
+    get_pool(db_path, pool_size=10)
+    
+    # Cleanup pool on shutdown
+    @app.teardown_appcontext
+    def shutdown_pool(exception=None):
+        """Chiude connection pool quando app viene terminata."""
+        if exception:
+            logger.warning(f"App teardown with exception: {exception}")
+        close_pool()
+    
     return app
 
 
@@ -116,13 +129,15 @@ def get_logger():
 
 def get_db():
     """
-    Factory per connessione database.
+    Factory per connessione database con connection pooling.
     
-    Crea nuova connessione per ogni request (thread-safe).
-    Per produzione considerare connection pooling.
+    Usa connection pool per riutilizzare connessioni e migliorare performance.
     """
     config = get_config()
     db_path = ConfigLoader.get_database_path(config)
+    
+    # Usa pool per efficienza (riuso connessioni)
+    # Il pool è singleton e thread-safe
     return GA4Database(db_path)
 
 
@@ -281,58 +296,65 @@ def apply_basic_auth_to_app(app: Flask):
         if request.endpoint == 'login':
             return None
         
+        # Skip logout endpoint (logout itself will validate)
+        if request.endpoint == 'logout':
+            return None
+        
         # Skip OPTIONS (CORS preflight)
         if request.method == 'OPTIONS':
             return None
         
+        # Priority 1: Check HttpOnly cookie (most secure)
+        token_from_cookie = request.cookies.get('auth_token')
+        if token_from_cookie:
+            payload = verify_jwt_token(token_from_cookie)
+            if payload:
+                return None  # JWT from cookie valid, allow request
+        
+        # Priority 2: Check Authorization header (fallback for API clients)
         auth_header = request.headers.get('Authorization')
         
-        if not auth_header:
-            return Response(
-                'Authentication required',
-                401,
-                {'WWW-Authenticate': 'Basic realm="Daily Report Staging"'}
-            )
-        
-        # Check JWT Bearer token first
-        if auth_header.startswith('Bearer '):
-            token = auth_header.split(' ', 1)[1]
-            payload = verify_jwt_token(token)
-            if payload:
-                return None  # JWT valid, allow request
-            return jsonify({
-                'success': False,
-                'error': 'Invalid or expired token',
-                'error_type': 'authentication'
-            }), 401
-        
-        # Fall back to Basic Auth
-        if auth_header.startswith('Basic '):
-        try:
-            encoded_credentials = auth_header.split(' ', 1)[1]
-            decoded = base64.b64decode(encoded_credentials).decode('utf-8')
-            username, password = decoded.split(':', 1)
-        except (ValueError, UnicodeDecodeError):
-            return Response(
-                'Invalid authentication format',
-                401,
-                {'WWW-Authenticate': 'Basic realm="Daily Report Staging"'}
-            )
-        
-            if username == staging_user and password == staging_password:
-                return None  # Basic Auth valid
+        if auth_header:
+            # Check JWT Bearer token
+            if auth_header.startswith('Bearer '):
+                token = auth_header.split(' ', 1)[1]
+                payload = verify_jwt_token(token)
+                if payload:
+                    return None  # JWT valid, allow request
+                return jsonify({
+                    'success': False,
+                    'error': 'Invalid or expired token',
+                    'error_type': 'authentication'
+                }), 401
             
-            return Response(
-                'Invalid credentials',
-                401,
-                {'WWW-Authenticate': 'Basic realm="Daily Report Staging"'}
-            )
+            # Fall back to Basic Auth
+            if auth_header.startswith('Basic '):
+                try:
+                    encoded_credentials = auth_header.split(' ', 1)[1]
+                    decoded = base64.b64decode(encoded_credentials).decode('utf-8')
+                    username, password = decoded.split(':', 1)
+                except (ValueError, UnicodeDecodeError):
+                    return Response(
+                        'Invalid authentication format',
+                        401,
+                        {'WWW-Authenticate': 'Basic realm="Daily Report Staging"'}
+                    )
+                
+                if username == staging_user and password == staging_password:
+                    return None  # Basic Auth valid
+                
+                return Response(
+                    'Invalid credentials',
+                    401,
+                    {'WWW-Authenticate': 'Basic realm="Daily Report Staging"'}
+                )
         
+        # No valid authentication found
         return Response(
             'Authentication required',
-                401,
-                {'WWW-Authenticate': 'Basic realm="Daily Report Staging"'}
-            )
+            401,
+            {'WWW-Authenticate': 'Basic realm="Daily Report Staging"'}
+        )
 
 
 def handle_errors(f):
@@ -372,10 +394,12 @@ def register_routes(app: Flask):
     @app.route('/api/auth/login', methods=['POST', 'OPTIONS'])
     def login():
         """
-        POST /api/auth/login - Authenticate and return JWT token.
+        POST /api/auth/login - Authenticate and set JWT in HttpOnly cookie.
         
         Request body: {"username": "...", "password": "..."}
-        Response: {"success": true, "token": "...", "expires_at": "...", "user": "..."}
+        Response: {"success": true, "user": "...", "expires_at": "..."}
+        
+        Security: Token stored in HttpOnly cookie (not accessible via JavaScript)
         """
         if request.method == 'OPTIONS':
             return '', 204
@@ -421,12 +445,56 @@ def register_routes(app: Flask):
                 'error_type': 'internal'
             }), 500
         
-        return jsonify({
+        # Create response with HttpOnly cookie
+        response = jsonify({
             'success': True,
-            'token': token,
-            'expires_at': expires_at.isoformat(),
-            'user': username
+            'user': username,
+            'expires_at': expires_at.isoformat()
         })
+        
+        # Set HttpOnly cookie with JWT token
+        # Secure=True in production (HTTPS only), False in development
+        is_production = os.getenv('FLASK_ENV') == 'production'
+        
+        response.set_cookie(
+            'auth_token',
+            value=token,
+            httponly=True,           # Not accessible via JavaScript (XSS protection)
+            secure=is_production,    # HTTPS only in production
+            samesite='Lax',          # CSRF protection (Strict breaks some OAuth flows)
+            max_age=JWT_EXPIRATION_DAYS * 24 * 60 * 60,  # 30 days in seconds
+            path='/'
+        )
+        
+        return response
+    
+    @app.route('/api/auth/logout', methods=['POST', 'OPTIONS'])
+    def logout():
+        """
+        POST /api/auth/logout - Clear authentication cookie.
+        
+        Response: {"success": true, "message": "Logged out successfully"}
+        """
+        if request.method == 'OPTIONS':
+            return '', 204
+        
+        response = jsonify({
+            'success': True,
+            'message': 'Logged out successfully'
+        })
+        
+        # Clear the auth cookie
+        response.set_cookie(
+            'auth_token',
+            value='',
+            httponly=True,
+            secure=os.getenv('FLASK_ENV') == 'production',
+            samesite='Lax',
+            max_age=0,  # Expire immediately
+            path='/'
+        )
+        
+        return response
     
     @app.route('/api/health', methods=['GET'])
     def health_check():

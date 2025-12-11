@@ -1,43 +1,42 @@
 # ===========================================
 # Requirements per Deploy su Render
-# Generato da pyproject.toml + dipendenze deploy
+# 
+# ⚠️ ATTENZIONE: File sincronizzato con pyproject.toml
+# Per aggiornare: uv pip compile pyproject.toml -o requirements.txt
+# 
+# Render e altri servizi cloud richiedono requirements.txt.
+# La sorgente di verità è pyproject.toml.
 # ===========================================
 
 # AI Agent
-datapizza-ai>=0.0.7
-datapizza-ai-clients-anthropic>=0.0.4
-datapizza-ai-clients-openai>=0.0.7
+datapizza-ai>=0.0.7,<0.1
+datapizza-ai-clients-anthropic>=0.0.4,<0.1
+datapizza-ai-clients-openai>=0.0.7,<0.1
 
 # Google Analytics
-google-analytics-data>=0.19.0
-google-auth-httplib2>=0.2.0
-google-auth-oauthlib>=1.2.2
+google-analytics-data>=0.19.0,<1.0
+google-auth-httplib2>=0.2.0,<1.0
+google-auth-oauthlib>=1.2.2,<2.0
 
 # Data Processing
-pandas>=2.3.3
+pandas>=2.3.3,<3.0
 
 # Utilities
-python-dotenv>=1.0.1
-pyyaml>=6.0.1
-python-dateutil>=2.8.2
-
-# JWT Authentication
-PyJWT>=2.8.0
-
-# Cache
-redis>=5.0.0
+python-dotenv>=1.0.1,<2.0
+pyyaml>=6.0.1,<7.0
+python-dateutil>=2.8.2,<3.0
 
 # Web Framework
-flask>=3.1.2
-flask-cors>=6.0.1
+flask>=3.1.2,<4.0
+flask-cors>=6.0.1,<7.0
 
-# ===========================================
-# Dipendenze per Deploy Render
-# ===========================================
+# Database & Cache
+redis>=5.0.0,<6.0
+psycopg2-binary>=2.9.11,<3.0
 
-# PostgreSQL driver (binary per compatibilità Render)
-psycopg2-binary>=2.9.9
+# Authentication
+PyJWT>=2.8.0,<3.0
 
-# WSGI Server per produzione
-gunicorn>=21.0.0
+# Production Server
+gunicorn>=21.0.0,<22.0
 
