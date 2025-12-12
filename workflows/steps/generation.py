@@ -167,9 +167,26 @@ class GenerationStep:
         return result_str
     
     def _save_draft(self, content: str) -> str:
-        """Salva draft email su file"""
+        """
+        Salva draft email su file.
+        
+        In ambienti serverless (Vercel, AWS Lambda) il filesystem è read-only
+        eccetto /tmp. I file vengono salvati in /tmp.
+        """
+        # Rileva ambiente serverless
+        is_serverless = (
+            os.getenv('VERCEL') or 
+            os.getenv('AWS_LAMBDA_FUNCTION_NAME') or 
+            __file__.startswith('/var/task')
+        )
+        
         output_dir = self.config['execution']['output_dir']
         draft_filename = self.config['execution']['draft_filename']
+        
+        # In serverless, forza /tmp se non già configurato
+        if is_serverless and not output_dir.startswith('/tmp'):
+            output_dir = f"/tmp/{output_dir}"
+        
         draft_path = os.path.join(output_dir, draft_filename)
         
         # Header metadata

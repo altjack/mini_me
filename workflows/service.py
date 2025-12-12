@@ -110,13 +110,37 @@ class DailyReportWorkflow:
         self._ensure_directories()
     
     def _ensure_directories(self) -> None:
-        """Crea directory necessarie"""
-        dirs = [
-            self.config['execution']['output_dir'],
-            self.config['execution']['archive_dir'],
-            'data',
-            'logs'
-        ]
+        """
+        Crea directory necessarie.
+        
+        In ambienti serverless (Vercel, AWS Lambda) il filesystem è read-only
+        eccetto /tmp. Le directory vengono create in /tmp o saltate.
+        """
+        import os
+        
+        # Rileva ambiente serverless
+        is_serverless = (
+            os.getenv('VERCEL') or 
+            os.getenv('AWS_LAMBDA_FUNCTION_NAME') or 
+            __file__.startswith('/var/task')
+        )
+        
+        if is_serverless:
+            # In serverless: solo /tmp è scrivibile
+            # I dati vengono da Postgres (non serve 'data')
+            # I log vanno su stdout o /tmp/logs (gestito da LoggerFactory)
+            dirs = [
+                f"/tmp/{self.config['execution']['output_dir']}",
+            ]
+        else:
+            # In locale: crea tutte le directory
+            dirs = [
+                self.config['execution']['output_dir'],
+                self.config['execution']['archive_dir'],
+                'data',
+                'logs'
+            ]
+        
         for d in dirs:
             Path(d).mkdir(parents=True, exist_ok=True)
     
