@@ -10,7 +10,7 @@
     "dev": "vite",
     "build": "vite build",
     "vercel-build": "vite build",
-    "prevercel-build": "node -e \"const fs=require('fs'); const path=require('path'); const crypto=require('crypto'); const readJson=(p)=>JSON.parse(fs.readFileSync(p,'utf8')); const readVer=(p)=>readJson(p).version; const vitePkgPath=require.resolve('vite/package.json'); const reactEntry=require.resolve('@vitejs/plugin-react'); const reactPkgPath=path.resolve(path.dirname(reactEntry), '..', 'package.json'); const viteVer=readVer(vitePkgPath); const reactVer=readVer(reactPkgPath); console.log('node',process.version); console.log('vite',viteVer); console.log('plugin-react',reactVer); const vitePkg=readJson(vitePkgPath); console.log('vite.exports keys', Object.keys(vitePkg.exports||{})); const idx='node_modules/vite/dist/node/index.js'; const exists=(p)=>{try{fs.accessSync(p);return true;}catch{return false;}}; console.log('vite.dist.node.index.js exists', exists(idx)); if(exists(idx)){ const buf=fs.readFileSync(idx); const hash=crypto.createHash('sha256').update(buf).digest('hex'); console.log('vite.dist.node.index.js sha256', hash); const s=buf.toString('utf8'); const lines=s.split(/\\n/); const hits=[]; for(let i=0;i<lines.length;i++){ if(lines[i].includes('runtime')) hits.push(i); } console.log('vite.dist.node.index.js runtime_hits', hits.length); if(hits.length){ console.log('vite.dist.node.index.js sample_runtime_lines'); hits.slice(0,20).forEach((i)=>console.log(String(i+1).padStart(5,' ')+':'+lines[i])); } }\"",
+    "prevercel-build": "node scripts/vercel-prebuild.cjs",
     "lint": "eslint .",
     "preview": "vite preview"
   },
