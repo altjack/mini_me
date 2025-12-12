@@ -10,6 +10,7 @@
     "dev": "vite",
     "build": "vite build",
     "vercel-build": "vite build",
+    "prevercel-build": "node -e \"const fs=require('fs'); const path=require('path'); const read=(p)=>JSON.parse(fs.readFileSync(p,'utf8')).version; const vitePkg=require.resolve('vite/package.json'); const reactEntry=require.resolve('@vitejs/plugin-react'); const reactPkg=path.resolve(path.dirname(reactEntry), '..', 'package.json'); console.log('node',process.version); console.log('vite',read(vitePkg)); console.log('plugin-react',read(reactPkg));\"",
     "lint": "eslint .",
     "preview": "vite preview"
   },
