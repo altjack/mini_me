@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useCallback, memo } from 'react';
-import { Card, Title, Text } from '@tremor/react';
+import { Card, Title, Text } from './ui/Card';
 import toast from 'react-hot-toast';
 import {
   BarChart,

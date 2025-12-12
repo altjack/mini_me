@@ -1,5 +1,5 @@
 import React, { useState, useMemo, memo, useCallback } from 'react';
-import { Card, Title } from '@tremor/react';
+import { Card, Title } from './ui/Card';
 import {
   LineChart,
   Line,
