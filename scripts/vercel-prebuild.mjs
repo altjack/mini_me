@@ -47,15 +47,21 @@ log('ls -la node_modules/vite/dist || true')
 console.log('[vercel-prebuild] Listing node_modules/vite (top-level):')
 log('ls -la node_modules/vite || true')
 
-// Self-heal: force re-install vite (no-save) in case the package was truncated/corrupted
-// This is intentionally redundant with `npm ci`, but has proven useful with flaky caches.
-console.log('[vercel-prebuild] Attempting self-heal reinstall: vite@7.2.7')
-log('npm i --no-save --prefer-online vite@7.2.7')
+// Self-heal: force re-install vite (no-save) in case the package was truncated/corrupted.
+// Do a HARD reinstall (remove folder) otherwise npm may report "up to date" and do nothing.
+console.log('[vercel-prebuild] Attempting HARD self-heal reinstall: vite@7.2.7')
+log('rm -rf node_modules/vite')
+log('npm i --no-save --prefer-online --force vite@7.2.7')
+console.log('[vercel-prebuild] After reinstall, listing node_modules/vite:')
+log('ls -la node_modules/vite || true')
+console.log('[vercel-prebuild] After reinstall, listing node_modules/vite/dist/node:')
+log('ls -la node_modules/vite/dist/node || true')
 
 if (!exists(cliPath)) {
+  // Don't hard fail here: `scripts/vercel-build.mjs` can fall back to `npx vite@7.2.7 build`.
   console.log('[vercel-prebuild] STILL MISSING after reinstall:', cliPath)
-  console.log('[vercel-prebuild] Failing build to force visibility of the issue.')
-  process.exit(1)
+  console.log('[vercel-prebuild] Continuing; build step will use npx fallback.')
+  process.exit(0)
 }
 
 console.log('[vercel-prebuild] Self-heal OK: found', cliPath)
