@@ -4,15 +4,26 @@
   "name": "daily-report",
   "framework": "vite",
   
-  "functions": {
-    "api/**/*.py": {
-      "maxDuration": 60
+  "builds": [
+    {
+      "src": "api/**/*.py",
+      "use": "@vercel/python",
+      "config": {
+        "maxLambdaSize": "15mb",
+        "runtime": "python3.12"
+      }
+    },
+    {
+      "src": "package.json",
+      "use": "@vercel/static-build",
+      "config": {
+        "distDir": "dist"
+      }
     }
-  },
+  ],
 
   "installCommand": "npm install --include=dev",
-  "buildCommand": "vite build",
-  "outputDirectory": "dist",
+  "buildCommand": "npm run vercel-build",
   
   "rewrites": [
     { "source": "/api/auth/login", "destination": "/api/auth/login.py" },
