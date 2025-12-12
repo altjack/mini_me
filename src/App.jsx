@@ -1,16 +1,40 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, memo, lazy, Suspense } from 'react';
 import { Routes, Route, NavLink } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
 import { StatsCard } from './components/StatsCard';
 import { EmailGenerator } from './components/EmailGenerator';
 import { BackfillPanel } from './components/BackfillPanel';
-import { Dashboard } from './components/Dashboard';
 import { LoginPage } from './components/LoginPage';
 import { useAuth } from './context/AuthContext';
 import { api } from './services/api';
+import { logError } from './utils/logger';
+import {
+  getFromCache,
+  setInCache,
+  CACHE_TTL,
+  invalidateCacheByPrefix
+} from './utils/cache';
 import { LayoutDashboard, Home, BarChart3, LogOut, Loader2 } from 'lucide-react';
 
-function HomePage({ stats, loadingStats, fetchStats }) {
+// Lazy load Dashboard component (heavy due to recharts)
+const Dashboard = lazy(() => import('./components/Dashboard').then(module => ({
+  default: module.Dashboard
+})));
+
+// Loading fallback for lazy-loaded components
+const DashboardLoadingFallback = () => (
+  <div className="min-h-[400px] flex items-center justify-center">
+    <div className="flex flex-col items-center gap-3">
+      <Loader2 className="animate-spin text-blue-600" size={32} />
+      <p className="text-gray-500 text-sm">Loading dashboard...</p>
+    </div>
+  </div>
+);
+
+/**
+ * HomePage component - memoized to prevent unnecessary re-renders
+ */
+const HomePage = memo(({ stats, loadingStats, fetchStats }) => {
   return (
     <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
       <div className="mb-8">
@@ -27,7 +51,7 @@ function HomePage({ stats, loadingStats, fetchStats }) {
         {/* Right Column: Tools */}
         <div className="lg:col-span-1">
           <BackfillPanel onActionComplete={fetchStats} />
-          
+
           {/* Helper Info */}
           <div className="mt-6 bg-white rounded-xl shadow-sm border border-gray-100 p-6">
             <h3 className="font-medium text-gray-900 mb-2">System Status</h3>
@@ -41,35 +65,63 @@ function HomePage({ stats, loadingStats, fetchStats }) {
       </div>
     </main>
   );
-}
+});
 
+HomePage.displayName = 'HomePage';
+
+/**
+ * AuthenticatedApp - main app layout for authenticated users
+ */
 function AuthenticatedApp() {
   const { logout, user } = useAuth();
   const [stats, setStats] = useState(null);
   const [loadingStats, setLoadingStats] = useState(true);
 
-  const fetchStats = async () => {
+  // Memoized fetch function with caching
+  const fetchStats = useCallback(async (forceRefresh = false) => {
+    const cacheKey = 'stats';
+
+    // Check cache first (unless force refresh)
+    if (!forceRefresh) {
+      const cached = getFromCache(cacheKey);
+      if (cached) {
+        setStats(cached);
+        setLoadingStats(false);
+        return;
+      }
+    }
+
     setLoadingStats(true);
     try {
       const res = await api.getStats();
       setStats(res.data);
+      // Cache the result
+      setInCache(cacheKey, res.data, CACHE_TTL.STATS);
     } catch (err) {
-      console.error('Failed to fetch stats', err);
+      logError('Failed to fetch stats', err);
     } finally {
       setLoadingStats(false);
     }
-  };
+  }, []);
+
+  // Callback for when actions complete (invalidates cache and refetches)
+  const handleActionComplete = useCallback(() => {
+    // Invalidate stats cache and metrics cache
+    invalidateCacheByPrefix('stats');
+    invalidateCacheByPrefix('metrics');
+    fetchStats(true);
+  }, [fetchStats]);
 
   useEffect(() => {
     fetchStats();
-  }, []);
+  }, [fetchStats]);
 
   // Listen for unauthorized events from API interceptor
   useEffect(() => {
     const handleUnauthorized = () => {
       logout();
     };
-    
+
     window.addEventListener('auth:unauthorized', handleUnauthorized);
     return () => window.removeEventListener('auth:unauthorized', handleUnauthorized);
   }, [logout]);
@@ -77,7 +129,7 @@ function AuthenticatedApp() {
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Toast Notifications */}
-      <Toaster 
+      <Toaster
         position="top-right"
         toastOptions={{
           duration: 4000,
@@ -99,7 +151,7 @@ function AuthenticatedApp() {
           },
         }}
       />
-      
+
       {/* Header with Navigation */}
       <header className="bg-white border-b border-gray-200 sticky top-0 z-10">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
@@ -107,7 +159,7 @@ function AuthenticatedApp() {
             <LayoutDashboard className="text-blue-600 mr-3" size={24} />
             <h1 className="text-xl font-bold text-gray-900">Automation Dashboard</h1>
           </div>
-          
+
           {/* Navigation */}
           <nav className="flex items-center space-x-1">
             <NavLink
@@ -136,7 +188,7 @@ function AuthenticatedApp() {
               <BarChart3 size={18} className="mr-2" />
               SWI Dashboard
             </NavLink>
-            
+
             {/* User & Logout */}
             <div className="flex items-center ml-4 pl-4 border-l border-gray-200">
               {user && (
@@ -159,22 +211,32 @@ function AuthenticatedApp() {
 
       {/* Routes */}
       <Routes>
-        <Route 
-          path="/" 
+        <Route
+          path="/"
           element={
-            <HomePage 
-              stats={stats} 
-              loadingStats={loadingStats} 
-              fetchStats={fetchStats} 
+            <HomePage
+              stats={stats}
+              loadingStats={loadingStats}
+              fetchStats={handleActionComplete}
             />
-          } 
+          }
         />
-        <Route path="/dashboard" element={<Dashboard />} />
+        <Route
+          path="/dashboard"
+          element={
+            <Suspense fallback={<DashboardLoadingFallback />}>
+              <Dashboard />
+            </Suspense>
+          }
+        />
       </Routes>
     </div>
   );
 }
 
+/**
+ * Main App component
+ */
 function App() {
   const { isAuthenticated, isLoading } = useAuth();
 

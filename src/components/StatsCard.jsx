@@ -1,7 +1,10 @@
-import React from 'react';
-import { BarChart3, Calendar, FileText, TrendingUp } from 'lucide-react';
+import React, { memo } from 'react';
+import { Calendar, FileText, TrendingUp } from 'lucide-react';
 
-const StatItem = ({ icon: Icon, label, value, subtext }) => (
+/**
+ * Individual stat item - memoized to prevent unnecessary re-renders
+ */
+const StatItem = memo(({ icon: Icon, label, value, subtext }) => (
   <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 flex items-start space-x-4">
     <div className="p-3 bg-blue-50 rounded-lg text-blue-600">
       <Icon size={24} />
@@ -12,9 +15,14 @@ const StatItem = ({ icon: Icon, label, value, subtext }) => (
       {subtext && <p className="text-xs text-gray-400 mt-1">{subtext}</p>}
     </div>
   </div>
-);
+));
 
-export const StatsCard = ({ stats, loading }) => {
+StatItem.displayName = 'StatItem';
+
+/**
+ * Stats card component - memoized with custom comparison
+ */
+const StatsCardComponent = ({ stats, loading }) => {
   if (loading) {
     return <div className="animate-pulse h-32 bg-gray-200 rounded-xl w-full"></div>;
   }
@@ -45,3 +53,12 @@ export const StatsCard = ({ stats, loading }) => {
   );
 };
 
+// Memoize with shallow comparison - re-renders only when stats or loading change
+export const StatsCard = memo(StatsCardComponent, (prevProps, nextProps) => {
+  return (
+    prevProps.loading === nextProps.loading &&
+    JSON.stringify(prevProps.stats) === JSON.stringify(nextProps.stats)
+  );
+});
+
+StatsCard.displayName = 'StatsCard';

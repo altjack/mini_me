@@ -10,11 +10,41 @@ export const BackfillPanel = ({ onActionComplete }) => {
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState(null);
 
+  // Validate date format and range
+  const isValidDate = (dateString) => {
+    const regex = /^\d{4}-\d{2}-\d{2}$/;
+    if (!regex.test(dateString)) return false;
+    const date = new Date(dateString);
+    return !isNaN(date.getTime());
+  };
+
   const handleBackfill = async (e) => {
     e.preventDefault();
+
+    // Client-side validation
+    if (!isValidDate(startDate) || !isValidDate(endDate)) {
+      toast.error('Invalid date format. Please use YYYY-MM-DD format.');
+      return;
+    }
+
+    const start = new Date(startDate);
+    const end = new Date(endDate);
+
+    if (start > end) {
+      toast.error('Start date must be before or equal to end date.');
+      return;
+    }
+
+    // Prevent excessive date ranges (e.g., max 365 days)
+    const daysDiff = Math.floor((end - start) / (1000 * 60 * 60 * 24));
+    if (daysDiff > 365) {
+      toast.error('Date range cannot exceed 365 days.');
+      return;
+    }
+
     setLoading(true);
     setResult(null);
-    
+
     const toastId = toast.loading('Backfilling data...');
     
     try {

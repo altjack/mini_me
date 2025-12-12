@@ -3,6 +3,7 @@ import ReactMarkdown from 'react-markdown';
 import rehypeSanitize from 'rehype-sanitize';
 import toast from 'react-hot-toast';
 import { api } from '../services/api';
+import { logError } from '../utils/logger';
 import { Send, Check, X, RefreshCw, Loader2 } from 'lucide-react';
 import clsx from 'clsx';
 
@@ -24,7 +25,7 @@ export const EmailGenerator = ({ onActionComplete }) => {
         setDraft(null);
       }
     } catch (err) {
-      console.error(err);
+      logError('Failed to check draft', err);
     }
   };
 

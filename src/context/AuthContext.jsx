@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { api, setToken, clearToken, getToken, isTokenExpired } from '../services/api';
+import { logError } from '../utils/logger';
 
 // =============================================================================
 // AUTH CONTEXT
@@ -84,13 +85,13 @@ export const AuthProvider = ({ children }) => {
         error: response.data.error || 'Login failed' 
       };
     } catch (error) {
-      console.error('Login error:', error);
-      
+      logError('Login error:', error);
+
       // Extract error message from response
       const errorMessage = error.response?.data?.error || 'Network error. Please try again.';
-      
-      return { 
-        success: false, 
+
+      return {
+        success: false,
         error: errorMessage
       };
     }
@@ -107,7 +108,7 @@ export const AuthProvider = ({ children }) => {
       // Call backend to clear cookie
       await api.logout();
     } catch (error) {
-      console.error('Logout error:', error);
+      logError('Logout error:', error);
       // Continue with logout even if API call fails
     } finally {
       // Clear local state
