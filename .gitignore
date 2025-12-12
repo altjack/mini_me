@@ -65,3 +65,6 @@ Thumbs.db
 # Test files (opzionale - rimuovi se vuoi committare i test)
 # test_*.py
 # test.py
+
+
+node_modules
