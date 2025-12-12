@@ -25,7 +25,7 @@
     }
   ],
 
-  "installCommand": "npm install --include=dev",
+  "installCommand": "NPM_CONFIG_PRODUCTION=false NPM_CONFIG_CACHE=/tmp/npm-cache npm ci --prefer-online",
   "buildCommand": "NPM_CONFIG_PRODUCTION=false npm run vercel-build",
   
   "rewrites": [
