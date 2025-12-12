@@ -36,11 +36,22 @@ if (reactVer) console.log('plugin-react', reactVer)
 
 const vitePkg = safe(() => readJson(vitePkgPath))
 if (vitePkg) {
-  console.log('vite.exports keys', Object.keys(vitePkg.exports || {}))
+  const keys = Object.keys(vitePkg.exports || {})
+  console.log('vite.exports keys', JSON.stringify(keys))
 }
 
 const idx = 'node_modules/vite/dist/node/index.js'
 console.log('vite.dist.node.index.js exists', exists(idx))
+
+// Quick visibility into the common failure
+const cli = 'node_modules/vite/dist/node/cli.js'
+console.log('vite.dist.node.cli.js exists', exists(cli))
+if (exists('node_modules/vite/dist/node')) {
+  safe(() => {
+    const entries = fs.readdirSync('node_modules/vite/dist/node').slice(0, 50)
+    console.log('vite.dist.node entries (first 50)', JSON.stringify(entries))
+  })
+}
 
 if (exists(idx)) {
   const buf = fs.readFileSync(idx)
