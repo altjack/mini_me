@@ -26,6 +26,7 @@
   ],
 
   "installCommand": "npm install --include=dev",
+  "buildCommand": "NPM_CONFIG_PRODUCTION=false npm run vercel-build",
   
   "rewrites": [
     { "source": "/api/auth/login", "destination": "/api/auth/login.py" },
