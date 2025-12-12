@@ -1,6 +1,8 @@
 const fs = require('fs')
 const { execSync } = require('child_process')
 
+const VITE_FALLBACK_VERSION = '5.4.21'
+
 function exists(p) {
   try {
     fs.accessSync(p, fs.constants.R_OK)
@@ -59,7 +61,9 @@ if (exists(localCli)) {
   console.log('[vercel-build] Using local vite build')
   runOrDie('node node_modules/vite/bin/vite.js build --debug', 'local vite build')
 } else {
-  console.log('[vercel-build] Local vite is missing dist/node/cli.js — removing local vite and running npm exec --package=vite@6.4.1')
+  console.log(
+    `[vercel-build] Local vite is missing dist/node/cli.js — removing local vite and running npm exec --package=vite@${VITE_FALLBACK_VERSION}`
+  )
 
   // Important: `npx vite@...` prefers the local binary if present, which is exactly what we need to avoid.
   // So we delete the broken local vite and use `npm exec --package` to fetch a clean copy.
@@ -70,8 +74,8 @@ if (exists(localCli)) {
 
   // Use a separate npm cache in /tmp to reduce flakiness across builds.
   runOrDie(
-    'NPM_CONFIG_CACHE=/tmp/npm-cache npm exec --yes --package=vite@6.4.1 -- vite build --debug',
-    'npm exec vite@6.4.1 build'
+    `NPM_CONFIG_CACHE=/tmp/npm-cache npm exec --yes --package=vite@${VITE_FALLBACK_VERSION} -- vite build --debug`,
+    `npm exec vite@${VITE_FALLBACK_VERSION} build`
   )
 }
 
