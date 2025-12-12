@@ -3,6 +3,9 @@
   "version": 2,
   "name": "daily-report",
   "framework": "vite",
+  "env": {
+    "NODE_VERSION": "20"
+  },
   
   "builds": [
     {
