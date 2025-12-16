@@ -14,11 +14,16 @@ import {
   CACHE_TTL,
   invalidateCacheByPrefix
 } from './utils/cache';
-import { LayoutDashboard, Home, BarChart3, LogOut, Loader2 } from 'lucide-react';
+import { LayoutDashboard, Home, BarChart3, LogOut, Loader2, Gift } from 'lucide-react';
 
 // Lazy load Dashboard component (heavy due to recharts)
 const Dashboard = lazy(() => import('./components/Dashboard').then(module => ({
   default: module.Dashboard
+})));
+
+// Lazy load PromoDashboard component
+const PromoDashboard = lazy(() => import('./components/PromoDashboard').then(module => ({
+  default: module.PromoDashboard
 })));
 
 // Loading fallback for lazy-loaded components
@@ -188,6 +193,19 @@ function AuthenticatedApp() {
               <BarChart3 size={18} className="mr-2" />
               SWI Dashboard
             </NavLink>
+            <NavLink
+              to="/promozioni"
+              className={({ isActive }) =>
+                `flex items-center px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                  isActive
+                    ? 'bg-amber-50 text-amber-700'
+                    : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
+                }`
+              }
+            >
+              <Gift size={18} className="mr-2" />
+              Promozioni
+            </NavLink>
 
             {/* User & Logout */}
             <div className="flex items-center ml-4 pl-4 border-l border-gray-200">
@@ -226,6 +244,14 @@ function AuthenticatedApp() {
           element={
             <Suspense fallback={<DashboardLoadingFallback />}>
               <Dashboard />
+            </Suspense>
+          }
+        />
+        <Route
+          path="/promozioni"
+          element={
+            <Suspense fallback={<DashboardLoadingFallback />}>
+              <PromoDashboard />
             </Suspense>
           }
         />
