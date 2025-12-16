@@ -10,8 +10,10 @@ import {
   Tooltip,
   ResponsiveContainer,
   ReferenceLine,
+  ReferenceArea,
   Cell
 } from 'recharts';
+import promoCalendar from '../data/promoCalendar.json';
 import { format, subDays, parseISO } from 'date-fns';
 import { it } from 'date-fns/locale';
 import { api } from '../services/api';
@@ -34,6 +36,49 @@ const COLORS = {
   average: '#ef4444',  // red-500
 };
 
+// Colori per tipologia promozione
+const PROMO_COLORS = {
+  'Operazione a premio': '#f59e0b',  // amber-500
+  'Promo': '#10b981',                // emerald-500
+  'Prodotto': '#8b5cf6',             // violet-500
+};
+
+/**
+ * Filtra le promozioni attive in un dato range di date
+ * @param {string} rangeStart - Data inizio range (YYYY-MM-DD)
+ * @param {string} rangeEnd - Data fine range (YYYY-MM-DD)
+ * @returns {Array} - Promozioni che si sovrappongono al range
+ */
+const getActivePromos = (rangeStart, rangeEnd) => {
+  if (!rangeStart || !rangeEnd) return [];
+  
+  const rangeStartDate = parseISO(rangeStart);
+  const rangeEndDate = parseISO(rangeEnd);
+  
+  return promoCalendar.promos.filter(promo => {
+    const promoStart = parseISO(promo.startDate);
+    const promoEnd = parseISO(promo.endDate);
+    
+    // La promo si sovrappone al range se:
+    // promoStart <= rangeEnd AND promoEnd >= rangeStart
+    return promoStart <= rangeEndDate && promoEnd >= rangeStartDate;
+  }).map(promo => {
+    // Calcola le date effettive da mostrare (clip al range visualizzato)
+    const promoStart = parseISO(promo.startDate);
+    const promoEnd = parseISO(promo.endDate);
+    
+    const effectiveStart = promoStart < rangeStartDate ? rangeStartDate : promoStart;
+    const effectiveEnd = promoEnd > rangeEndDate ? rangeEndDate : promoEnd;
+    
+    return {
+      ...promo,
+      effectiveStartDate: format(effectiveStart, 'dd/MM', { locale: it }),
+      effectiveEndDate: format(effectiveEnd, 'dd/MM', { locale: it }),
+      color: PROMO_COLORS[promo.type] || '#9ca3af'  // gray-400 fallback
+    };
+  });
+};
+
 // Preset per selezione rapida date - definiti fuori dal componente
 const DATE_PRESETS = [
   { label: 'Ultimi 7 giorni', days: 7 },
@@ -44,7 +89,24 @@ const DATE_PRESETS = [
 ];
 
 /**
+ * Trova le promozioni attive per una data specifica
+ * @param {string} dateStr - Data in formato YYYY-MM-DD
+ * @returns {Array} - Promozioni attive per quella data
+ */
+const getPromosForDate = (dateStr) => {
+  if (!dateStr) return [];
+  const date = parseISO(dateStr);
+  
+  return promoCalendar.promos.filter(promo => {
+    const promoStart = parseISO(promo.startDate);
+    const promoEnd = parseISO(promo.endDate);
+    return date >= promoStart && date <= promoEnd;
+  });
+};
+
+/**
  * Custom tooltip component - memoized
+ * Mostra anche le promozioni attive per la data selezionata
  */
 const CustomTooltip = memo(({ active, payload }) => {
   if (!active || !payload || payload.length === 0) return null;
@@ -52,8 +114,11 @@ const CustomTooltip = memo(({ active, payload }) => {
   const dataPoint = payload[0]?.payload;
   if (!dataPoint) return null;
 
+  // Trova promozioni attive per questa data
+  const activePromosForDate = getPromosForDate(dataPoint.fullDate);
+
   return (
-    <div className="bg-white border border-gray-200 rounded-lg shadow-lg p-3 min-w-[160px]">
+    <div className="bg-white border border-gray-200 rounded-lg shadow-lg p-3 min-w-[180px]">
       <p className="text-sm font-medium text-gray-900">
         {dataPoint.fullDate}
       </p>
@@ -63,6 +128,22 @@ const CustomTooltip = memo(({ active, payload }) => {
       <p className={`text-lg font-bold ${dataPoint.isWeekend ? 'text-violet-600' : 'text-blue-600'}`}>
         {dataPoint.swi?.toLocaleString('it-IT')} SWI
       </p>
+      
+      {/* Mostra promozioni attive */}
+      {activePromosForDate.length > 0 && (
+        <div className="mt-2 pt-2 border-t border-gray-100">
+          <p className="text-xs text-gray-500 mb-1">Promo attive:</p>
+          {activePromosForDate.map((promo, idx) => (
+            <div key={idx} className="flex items-center gap-1.5 text-xs">
+              <span 
+                className="w-2 h-2 rounded-full flex-shrink-0" 
+                style={{ backgroundColor: PROMO_COLORS[promo.type] || '#9ca3af' }}
+              />
+              <span className="font-medium text-gray-700">{promo.name}</span>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 });
@@ -228,6 +309,11 @@ function DashboardComponent() {
   // Memoized channels array
   const channels = useMemo(() => sessionsMeta?.channels || [], [sessionsMeta]);
 
+  // Promozioni attive nel range visualizzato
+  const activePromos = useMemo(() => {
+    return getActivePromos(startDate, endDate);
+  }, [startDate, endDate]);
+
   return (
     <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
       {/* Header */}
@@ -254,7 +340,7 @@ function DashboardComponent() {
                 type="date"
                 value={startDate}
                 onChange={(e) => setStartDate(e.target.value)}
-                className="px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                className="px-3 py-2 border border-gray-200 rounded-lg text-sm bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                 aria-label="Data inizio periodo"
               />
             </div>
@@ -265,7 +351,7 @@ function DashboardComponent() {
                 type="date"
                 value={endDate}
                 onChange={(e) => setEndDate(e.target.value)}
-                className="px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                className="px-3 py-2 border border-gray-200 rounded-lg text-sm bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                 aria-label="Data fine periodo"
               />
             </div>
@@ -301,10 +387,20 @@ function DashboardComponent() {
       <Card className="mb-6">
         <Title>Conversioni SWI per Giorno</Title>
         <Text className="mb-4">
-          <span className="inline-flex items-center gap-2">
+          <span className="inline-flex items-center gap-2 flex-wrap">
             <span className="w-3 h-3 rounded" style={{ backgroundColor: COLORS.weekday }}></span> Giorni feriali
             <span className="w-3 h-3 rounded ml-3" style={{ backgroundColor: COLORS.weekend }}></span> Weekend
             <span className="w-8 h-0.5 ml-3" style={{ backgroundColor: COLORS.average }}></span> Media periodo
+            {/* Separatore visivo */}
+            <span className="mx-2 text-gray-300">|</span>
+            {/* Legenda promozioni */}
+            <span className="text-gray-500 text-xs">Promo:</span>
+            <span className="w-3 h-3 rounded opacity-60" style={{ backgroundColor: PROMO_COLORS['Operazione a premio'] }}></span>
+            <span className="text-xs">Op. a premio</span>
+            <span className="w-3 h-3 rounded ml-2 opacity-60" style={{ backgroundColor: PROMO_COLORS['Promo'] }}></span>
+            <span className="text-xs">Promo</span>
+            <span className="w-3 h-3 rounded ml-2 opacity-60" style={{ backgroundColor: PROMO_COLORS['Prodotto'] }}></span>
+            <span className="text-xs">Prodotto</span>
           </span>
         </Text>
 
@@ -328,6 +424,19 @@ function DashboardComponent() {
           <ResponsiveContainer width="100%" height={320}>
             <BarChart data={chartData} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" vertical={false} />
+              
+              {/* Reference areas per promozioni attive - renderizzate sullo sfondo */}
+              {activePromos.map((promo, index) => (
+                <ReferenceArea
+                  key={`promo-${index}-${promo.name}`}
+                  x1={promo.effectiveStartDate}
+                  x2={promo.effectiveEndDate}
+                  fill={promo.color}
+                  fillOpacity={0.15}
+                  strokeOpacity={0}
+                />
+              ))}
+              
               <XAxis
                 dataKey="date"
                 tick={{ fontSize: 11, fill: '#6b7280' }}

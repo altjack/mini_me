@@ -15,7 +15,8 @@ from http.server import BaseHTTPRequestHandler
 from _utils import (
     json_response, error_response, options_response,
     check_jwt_auth, get_db,
-    validate_date_string
+    validate_date_string, safe_error_response,
+    is_production
 )
 import logging
 logger = logging.getLogger(__name__)
@@ -200,13 +201,22 @@ class handler(BaseHTTPRequestHandler):
                     db.close()
         
         except Exception as e:
-            # Risposta verbosa per ambienti di staging/preview
-            logger.error(f"Unhandled backfill exception: {e}", exc_info=True)
-            response = error_response(
-                message=f'Backfill failed: {e}',
-                status=500,
-                error_type='internal'
-            )
+            # Use safe error response to avoid exposing internal details
+            if is_production():
+                response = safe_error_response(
+                    error_type='internal',
+                    internal_error=e,
+                    user_message='Backfill operation failed. Please try again later.',
+                    status=500
+                )
+            else:
+                # In staging/dev, show more details for debugging
+                logger.error(f"Unhandled backfill exception: {e}", exc_info=True)
+                response = error_response(
+                    message=f'Backfill failed: {e}',
+                    status=500,
+                    error_type='internal'
+                )
         
         self._send_response(response)
     

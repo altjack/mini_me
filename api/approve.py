@@ -13,7 +13,8 @@ import json
 from http.server import BaseHTTPRequestHandler
 from _utils import (
     json_response, error_response, options_response,
-    check_jwt_auth, get_config
+    check_jwt_auth, get_config, safe_error_response,
+    is_production
 )
 
 
@@ -56,7 +57,15 @@ class handler(BaseHTTPRequestHandler):
                     )
         
         except Exception as e:
-            response = error_response(f'Approval error: {str(e)}', 500, 'internal')
+            if is_production():
+                response = safe_error_response(
+                    error_type='internal',
+                    internal_error=e,
+                    user_message='Approval failed. Please try again later.',
+                    status=500
+                )
+            else:
+                response = error_response(f'Approval error: {str(e)}', 500, 'internal')
         
         self._send_response(response)
     

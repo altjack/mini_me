@@ -9,6 +9,7 @@ import os
 import sys
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
+import hmac
 import json
 from datetime import datetime, timedelta, timezone
 from http.server import BaseHTTPRequestHandler
@@ -30,6 +31,29 @@ logger = logging.getLogger(__name__)
 # JWT Configuration
 JWT_ALGORITHM = "HS256"
 JWT_EXPIRATION_DAYS = 30
+
+# Rate limiting configuration
+MAX_LOGIN_ATTEMPTS = 5
+LOGIN_WINDOW_SECONDS = 300  # 5 minutes
+
+# In-memory rate limiting (per-instance, limited effectiveness in serverless)
+# For production, consider using Vercel KV or Redis
+from collections import defaultdict
+from time import time
+_login_attempts = defaultdict(list)
+
+
+def is_rate_limited(ip: str) -> bool:
+    """Check if IP is rate limited for login attempts."""
+    now = time()
+    # Clean old attempts
+    _login_attempts[ip] = [t for t in _login_attempts[ip] if now - t < LOGIN_WINDOW_SECONDS]
+    return len(_login_attempts[ip]) >= MAX_LOGIN_ATTEMPTS
+
+
+def record_login_attempt(ip: str):
+    """Record a failed login attempt for rate limiting."""
+    _login_attempts[ip].append(time())
 
 
 def get_jwt_secret() -> str:
@@ -74,7 +98,23 @@ class handler(BaseHTTPRequestHandler):
     def do_POST(self):
         """POST /api/auth/login - Authenticate user and return JWT."""
         request_origin = self.headers.get('Origin', '')
-        
+
+        # Get client IP for rate limiting
+        client_ip = self.headers.get('X-Forwarded-For', self.client_address[0] if self.client_address else 'unknown')
+        if ',' in client_ip:
+            client_ip = client_ip.split(',')[0].strip()
+
+        # Rate limiting check
+        if is_rate_limited(client_ip):
+            response = error_response(
+                message='Too many login attempts. Please try again later.',
+                status=429,
+                error_type='rate_limit',
+                request_origin=request_origin
+            )
+            self._send_response(response)
+            return
+
         # Check if JWT library is available
         if jwt is None:
             response = error_response(
@@ -164,9 +204,13 @@ class handler(BaseHTTPRequestHandler):
                 expected_user = 'admin'
                 expected_password = 'admin'
             
-            # Verify credentials
-            if username != expected_user or password != expected_password:
-                logger.warning(f"Failed login attempt for user: {username}")
+            # Verify credentials (constant-time comparison to prevent timing attacks)
+            username_match = hmac.compare_digest(username.encode(), expected_user.encode())
+            password_match = hmac.compare_digest(password.encode(), expected_password.encode())
+            if not (username_match and password_match):
+                # Record failed attempt for rate limiting
+                record_login_attempt(client_ip)
+                logger.warning(f"Failed login attempt for user: {username} from IP: {client_ip}")
                 response = error_response(
                     message='Invalid username or password',
                     status=401,

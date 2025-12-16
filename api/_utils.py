@@ -123,10 +123,26 @@ def is_origin_allowed(request_origin: str) -> bool:
     if request_origin in allowed:
         return True
     
-    # In Vercel, accetta origini .vercel.app (preview deployments)
+    # In Vercel, accetta solo origini del proprio progetto (preview deployments)
+    # Pattern: https://{project-name}-{hash}-{user}.vercel.app
+    # O: https://{project-name}.vercel.app (production)
     if os.getenv('VERCEL'):
-        if request_origin.endswith('.vercel.app') and request_origin.startswith('https://'):
-            return True
+        vercel_project = os.getenv('VERCEL_PROJECT_PRODUCTION_URL', '')
+        # Extract project name from production URL (e.g., "mini-me.vercel.app" -> "mini-me")
+        project_prefix = vercel_project.replace('.vercel.app', '') if vercel_project else ''
+
+        if request_origin.startswith('https://') and request_origin.endswith('.vercel.app'):
+            # Remove https:// and .vercel.app to get the subdomain
+            subdomain = request_origin.replace('https://', '').replace('.vercel.app', '')
+
+            # Allow exact project match or preview deployments (project-hash-user pattern)
+            if project_prefix and (subdomain == project_prefix or subdomain.startswith(f"{project_prefix}-")):
+                return True
+
+            # Fallback: check VERCEL_URL for current deployment
+            current_url = os.getenv('VERCEL_URL', '')
+            if current_url and subdomain == current_url.replace('.vercel.app', ''):
+                return True
     
     return False
 
@@ -354,8 +370,11 @@ def check_basic_auth(request) -> Optional[Dict]:
             'body': 'Invalid authentication format'
         }
     
-    # Verifica credenziali (timing-safe comparison sarebbe ideale)
-    if username != staging_user or password != staging_password:
+    # Verifica credenziali (constant-time comparison to prevent timing attacks)
+    import hmac
+    username_match = hmac.compare_digest(username.encode(), staging_user.encode())
+    password_match = hmac.compare_digest(password.encode(), staging_password.encode())
+    if not (username_match and password_match):
         logger.warning(f"Invalid credentials attempt from {request.headers.get('X-Forwarded-For', 'unknown')}")
         return {
             'statusCode': 401,
@@ -402,8 +421,9 @@ def check_api_key(request) -> Optional[Dict]:
         return None
     
     api_key = request.headers.get('X-API-Key', '')
-    
-    if api_key != expected_key:
+
+    # Constant-time comparison to prevent timing attacks
+    if not api_key or not hmac.compare_digest(api_key.encode(), expected_key.encode()):
         logger.warning(f"Invalid API key attempt from {request.headers.get('X-Forwarded-For', 'unknown')}")
         return error_response(
             message='Unauthorized - Invalid or missing API key',

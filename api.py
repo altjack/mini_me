@@ -44,6 +44,31 @@ from db_pool import get_pool, close_pool
 # SECURITY CONFIGURATION
 # =============================================================================
 
+import hmac
+from collections import defaultdict
+from time import time
+
+# Rate limiting per login endpoint (in-memory, per-instance)
+# Note: In serverless, each instance has its own state, but this still
+# provides protection against rapid brute force within a single instance
+LOGIN_ATTEMPTS = defaultdict(list)  # IP -> list of timestamps
+MAX_LOGIN_ATTEMPTS = 5  # Max attempts per window
+LOGIN_WINDOW_SECONDS = 300  # 5 minute window
+
+
+def is_rate_limited(ip: str) -> bool:
+    """Check if IP is rate limited for login attempts."""
+    now = time()
+    # Clean old attempts
+    LOGIN_ATTEMPTS[ip] = [t for t in LOGIN_ATTEMPTS[ip] if now - t < LOGIN_WINDOW_SECONDS]
+    return len(LOGIN_ATTEMPTS[ip]) >= MAX_LOGIN_ATTEMPTS
+
+
+def record_login_attempt(ip: str):
+    """Record a login attempt for rate limiting."""
+    LOGIN_ATTEMPTS[ip].append(time())
+
+
 # Origini CORS permesse (whitelist)
 ALLOWED_ORIGINS = [
     'http://localhost:5173',
@@ -200,12 +225,19 @@ def require_api_key(f):
         api_key = request.headers.get('X-API-Key')
         expected_key = os.getenv('API_SECRET_KEY')
         
-        # Se API_SECRET_KEY non configurata, permetti (dev mode)
+        # SECURITY: In production, API key MUST be configured
         if not expected_key:
+            if os.getenv('VERCEL_ENV') in ('production', 'preview'):
+                return jsonify({
+                    'success': False,
+                    'error': 'Service temporarily unavailable',
+                    'error_type': 'config'
+                }), 503
+            # Dev mode: allow without API key
             return f(*args, **kwargs)
         
-        # Verifica API key
-        if not api_key or api_key != expected_key:
+        # Verifica API key (constant-time comparison to prevent timing attacks)
+        if not api_key or not hmac.compare_digest(api_key.encode(), expected_key.encode()):
             return jsonify({
                 'success': False,
                 'error': 'Unauthorized - Invalid or missing API key',
@@ -231,8 +263,14 @@ def require_basic_auth(f):
         staging_user = os.getenv('STAGING_USER')
         staging_password = os.getenv('STAGING_PASSWORD')
         
-        # Se credenziali non configurate, permetti (dev mode)
+        # SECURITY: In production, credentials MUST be configured
         if not staging_user or not staging_password:
+            if os.getenv('VERCEL_ENV') in ('production', 'preview'):
+                return Response(
+                    'Service temporarily unavailable',
+                    503
+                )
+            # Dev mode: allow without credentials
             return f(*args, **kwargs)
         
         # Verifica header Authorization
@@ -257,8 +295,11 @@ def require_basic_auth(f):
                 {'WWW-Authenticate': 'Basic realm="Daily Report Staging"'}
             )
         
-        # Verifica credenziali
-        if username != staging_user or password != staging_password:
+        # Verifica credenziali (constant-time comparison to prevent timing attacks)
+        import hmac
+        username_match = hmac.compare_digest(username.encode(), staging_user.encode())
+        password_match = hmac.compare_digest(password.encode(), staging_password.encode())
+        if not (username_match and password_match):
             return Response(
                 'Invalid credentials',
                 401,
@@ -278,8 +319,26 @@ JWT_EXPIRATION_DAYS = 30
 
 
 def get_jwt_secret() -> str:
-    """Get JWT secret key from environment."""
-    return os.getenv('JWT_SECRET_KEY', 'dev-secret-key-not-for-production')
+    """Get JWT secret key from environment.
+
+    SECURITY: In production, JWT_SECRET_KEY MUST be configured.
+    Fails closed - no default secret in production.
+    """
+    secret = os.getenv('JWT_SECRET_KEY')
+
+    # In production/preview, require explicit configuration
+    if os.getenv('VERCEL_ENV') in ('production', 'preview'):
+        if not secret:
+            raise RuntimeError("SECURITY: JWT_SECRET_KEY must be configured in production")
+        return secret
+
+    # In development, allow default (with warning)
+    if not secret:
+        import warnings
+        warnings.warn("Using default JWT secret - NOT FOR PRODUCTION", stacklevel=2)
+        return 'dev-secret-key-not-for-production'
+
+    return secret
 
 
 def generate_jwt_token(username: str) -> tuple:
@@ -447,7 +506,19 @@ def register_routes(app: Flask):
         """
         if request.method == 'OPTIONS':
             return '', 204
-        
+
+        # Rate limiting check
+        client_ip = request.headers.get('X-Forwarded-For', request.remote_addr or 'unknown')
+        if ',' in client_ip:
+            client_ip = client_ip.split(',')[0].strip()
+
+        if is_rate_limited(client_ip):
+            return jsonify({
+                'success': False,
+                'error': 'Too many login attempts. Please try again later.',
+                'error_type': 'rate_limit'
+            }), 429
+
         # Check if JWT library is available
         if jwt is None:
             return jsonify({
@@ -455,24 +526,29 @@ def register_routes(app: Flask):
                 'error': 'JWT library not installed',
                 'error_type': 'config'
             }), 503
-        
+
         data = request.get_json() or {}
         username = data.get('username', '').strip()
         password = data.get('password', '')
-        
+
         if not username or not password:
             return jsonify({
                 'success': False,
                 'error': 'Username and password are required',
                 'error_type': 'validation'
             }), 400
-        
+
         # Get expected credentials
         expected_user = os.getenv('STAGING_USER', 'admin')
         expected_password = os.getenv('STAGING_PASSWORD', 'admin')
-        
-        # Verify credentials
-        if username != expected_user or password != expected_password:
+
+        # Verify credentials (constant-time comparison to prevent timing attacks)
+        username_match = hmac.compare_digest(username.encode(), expected_user.encode())
+        password_match = hmac.compare_digest(password.encode(), expected_password.encode())
+
+        if not (username_match and password_match):
+            # Record failed attempt for rate limiting
+            record_login_attempt(client_ip)
             return jsonify({
                 'success': False,
                 'error': 'Invalid username or password',
