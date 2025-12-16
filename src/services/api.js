@@ -145,6 +145,7 @@ export const api = {
   backfill: (startDate, endDate, options = {}) => apiClient.post('/backfill', { 
       start_date: startDate, 
       end_date: endDate,
+      include_channels: true,  // Sempre includi sessioni per canale
     ...options
   }),
 };

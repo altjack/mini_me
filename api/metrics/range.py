@@ -77,7 +77,7 @@ class handler(BaseHTTPRequestHandler):
             try:
                 metrics = db.get_date_range(start_date_str, end_date_str)
                 
-                # Arricchisci con flag weekend
+                # Arricchisci con flag weekend e dati CR
                 result = []
                 for m in metrics:
                     date_obj = datetime.strptime(m['date'], '%Y-%m-%d')
@@ -86,12 +86,20 @@ class handler(BaseHTTPRequestHandler):
                     result.append({
                         'date': m['date'],
                         'swi': m['swi_conversioni'],
+                        'cr_commodity': m['cr_commodity'],
+                        'cr_lucegas': m['cr_lucegas'],
                         'isWeekend': is_weekend
                     })
                 
-                # Calcola media
+                # Calcola medie
                 swi_values = [r['swi'] for r in result if r['swi'] is not None]
                 avg_swi = round(sum(swi_values) / len(swi_values), 2) if swi_values else 0
+                
+                cr_commodity_values = [r['cr_commodity'] for r in result if r['cr_commodity'] is not None]
+                avg_cr_commodity = round(sum(cr_commodity_values) / len(cr_commodity_values), 2) if cr_commodity_values else 0
+                
+                cr_lucegas_values = [r['cr_lucegas'] for r in result if r['cr_lucegas'] is not None]
+                avg_cr_lucegas = round(sum(cr_lucegas_values) / len(cr_lucegas_values), 2) if cr_lucegas_values else 0
                 
                 response = json_response({
                     'success': True,
@@ -100,7 +108,9 @@ class handler(BaseHTTPRequestHandler):
                         'start_date': start_date_str,
                         'end_date': end_date_str,
                         'count': len(result),
-                        'average': avg_swi
+                        'average': avg_swi,
+                        'avg_cr_commodity': avg_cr_commodity,
+                        'avg_cr_lucegas': avg_cr_lucegas
                     }
                 })
             finally:

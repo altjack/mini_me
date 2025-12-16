@@ -25,6 +25,7 @@ import {
 } from '../utils/cache';
 import { Calendar, RefreshCw, TrendingUp } from 'lucide-react';
 import { SessionsChart } from './SessionsChart';
+import { CRChart } from './CRChart';
 
 // Colori per il grafico - definiti fuori dal componente
 const COLORS = {
@@ -390,6 +391,24 @@ function DashboardComponent() {
           byChannel={sessionsData.by_channel}
           loading={loadingSessions}
           channels={channels}
+        />
+      </div>
+
+      {/* CR Charts - Grafici Conversion Rate */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+        <CRChart
+          title="CR Commodity"
+          dataKey="cr_commodity"
+          data={data}
+          average={meta?.avg_cr_commodity}
+          loading={loading}
+        />
+        <CRChart
+          title="CR Luce & Gas"
+          dataKey="cr_lucegas"
+          data={data}
+          average={meta?.avg_cr_lucegas}
+          loading={loading}
         />
       </div>
 

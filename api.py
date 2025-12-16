@@ -12,6 +12,10 @@ Uses app factory pattern for testability.
 """
 
 import os
+from dotenv import load_dotenv
+
+# Carica variabili d'ambiente da .env (se esiste)
+load_dotenv()
 import sys
 import argparse
 import base64
@@ -790,8 +794,13 @@ def register_routes(app: Flask):
         
         logger.info(f"Backfill request: {start_date_str} to {end_date_str}")
         
+        # Calcola data massima per canali (D-2) - GA4 richiede ~48h di ritardo
+        today = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
+        max_channel_date = today - timedelta(days=2)
+        
         # Import backfill function
         from scripts.backfill_missing_dates import backfill_single_date
+        from ga4_extraction.extraction import extract_sessions_channels_delayed
         
         # Setup risorse
         db = get_db()
@@ -819,15 +828,27 @@ def register_routes(app: Flask):
                 date_str = current_date.strftime('%Y-%m-%d')
                 
                 try:
+                    # Estrai dati principali SENZA canali (gestiti separatamente)
                     success = backfill_single_date(
                         date_str, 
                         db, 
                         redis_cache,
-                        include_channels=include_channels
+                        include_channels=False  # Canali gestiti sotto con data aggiustata
                     )
+                    
+                    # Estrai canali solo se richiesto E data <= D-2
+                    channels_extracted = False
+                    if include_channels and current_date <= max_channel_date:
+                        channels_extracted = extract_sessions_channels_delayed(
+                            date_str, 
+                            db, 
+                            skip_validation=True  # Già validato sopra
+                        )
+                    
                     results.append({
                         'date': date_str,
                         'success': success,
+                        'channels_extracted': channels_extracted if include_channels else None,
                         'error': None
                     })
                 except Exception as e:
@@ -835,6 +856,7 @@ def register_routes(app: Flask):
                     results.append({
                         'date': date_str,
                         'success': False,
+                        'channels_extracted': False if include_channels else None,
                         'error': str(e)
                     })
                 
@@ -842,6 +864,7 @@ def register_routes(app: Flask):
             
             # Calcola statistiche
             success_count = sum(1 for r in results if r['success'])
+            channels_count = sum(1 for r in results if r.get('channels_extracted')) if include_channels else 0
             
             return jsonify({
                 'success': True,
@@ -849,6 +872,8 @@ def register_routes(app: Flask):
                     'total': len(results),
                     'successful': success_count,
                     'failed': len(results) - success_count,
+                    'channels_extracted': channels_count if include_channels else None,
+                    'channels_max_date': max_channel_date.strftime('%Y-%m-%d') if include_channels else None,
                     'details': results
                 }
             })
@@ -971,7 +996,7 @@ def register_routes(app: Flask):
         try:
             metrics = db.get_date_range(start_date_str, end_date_str)
             
-            # Arricchisci con flag weekend e formatta per frontend
+            # Arricchisci con flag weekend, dati CR e formatta per frontend
             result = []
             for m in metrics:
                 date_obj = datetime.strptime(m['date'], '%Y-%m-%d')
@@ -980,12 +1005,20 @@ def register_routes(app: Flask):
                 result.append({
                     'date': m['date'],
                     'swi': m['swi_conversioni'],
+                    'cr_commodity': m['cr_commodity'],
+                    'cr_lucegas': m['cr_lucegas'],
                     'isWeekend': is_weekend
                 })
             
-            # Calcola media per linea di riferimento
+            # Calcola medie per linee di riferimento
             swi_values = [r['swi'] for r in result if r['swi'] is not None]
             avg_swi = round(sum(swi_values) / len(swi_values), 2) if swi_values else 0
+            
+            cr_commodity_values = [r['cr_commodity'] for r in result if r['cr_commodity'] is not None]
+            avg_cr_commodity = round(sum(cr_commodity_values) / len(cr_commodity_values), 2) if cr_commodity_values else 0
+            
+            cr_lucegas_values = [r['cr_lucegas'] for r in result if r['cr_lucegas'] is not None]
+            avg_cr_lucegas = round(sum(cr_lucegas_values) / len(cr_lucegas_values), 2) if cr_lucegas_values else 0
             
             return jsonify({
                 'success': True,
@@ -994,7 +1027,9 @@ def register_routes(app: Flask):
                     'start_date': start_date_str,
                     'end_date': end_date_str,
                     'count': len(result),
-                    'average': avg_swi
+                    'average': avg_swi,
+                    'avg_cr_commodity': avg_cr_commodity,
+                    'avg_cr_lucegas': avg_cr_lucegas
                 }
             })
         finally:

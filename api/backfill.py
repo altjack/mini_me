@@ -80,11 +80,15 @@ class handler(BaseHTTPRequestHandler):
                 self._send_response(response)
                 return
             
+            # Calcola data massima per canali (D-2) - GA4 richiede ~48h di ritardo
+            today = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
+            max_channel_date = today - timedelta(days=2)
+            
             # Import backfill function
             import sys
             sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
             from scripts.backfill_missing_dates import backfill_single_date
-            from ga4_extraction.extraction import extract_for_date
+            from ga4_extraction.extraction import extract_for_date, extract_sessions_channels_delayed
             
             db = None
             try:
@@ -139,15 +143,27 @@ class handler(BaseHTTPRequestHandler):
                     date_str = current_date.strftime('%Y-%m-%d')
                     
                     try:
+                        # Estrai dati principali SENZA canali (gestiti separatamente)
                         success = backfill_single_date(
                             date_str, 
                             db, 
                             None,  # No Redis cache in serverless
-                            include_channels=include_channels
+                            include_channels=False  # Canali gestiti sotto con data aggiustata
                         )
+                        
+                        # Estrai canali solo se richiesto E data <= D-2
+                        channels_extracted = False
+                        if include_channels and current_date <= max_channel_date:
+                            channels_extracted = extract_sessions_channels_delayed(
+                                date_str, 
+                                db, 
+                                skip_validation=True  # Già validato sopra
+                            )
+                        
                         results.append({
                             'date': date_str,
                             'success': success,
+                            'channels_extracted': channels_extracted if include_channels else None,
                             'error': None
                         })
                     except Exception as e:
@@ -157,6 +173,7 @@ class handler(BaseHTTPRequestHandler):
                         results.append({
                             'date': date_str,
                             'success': False,
+                            'channels_extracted': False if include_channels else None,
                             'error': str(e)
                         })
                     
@@ -164,6 +181,7 @@ class handler(BaseHTTPRequestHandler):
                 
                 # Calcola statistiche
                 success_count = sum(1 for r in results if r['success'])
+                channels_count = sum(1 for r in results if r.get('channels_extracted')) if include_channels else 0
                 
                 response = json_response({
                     'success': True,
@@ -171,6 +189,8 @@ class handler(BaseHTTPRequestHandler):
                         'total': len(results),
                         'successful': success_count,
                         'failed': len(results) - success_count,
+                        'channels_extracted': channels_count if include_channels else None,
+                        'channels_max_date': max_channel_date.strftime('%Y-%m-%d') if include_channels else None,
                         'details': results
                     }
                 })
