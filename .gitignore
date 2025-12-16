@@ -50,6 +50,8 @@ credentials/
 !package-lock.json
 !**/package.json
 !**/package-lock.json
+# Allow promo calendar data for dashboard
+!src/data/promoCalendar.json
 
 # IDE files
 .vscode/

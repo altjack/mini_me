@@ -1,0 +1,161 @@
+{
+  "promos": [
+    {
+      "name": "Purificatore",
+      "type": "Operazione a premio",
+      "startDate": "2025-01-09",
+      "endDate": "2025-01-13"
+    },
+    {
+      "name": "Dazn",
+      "type": "Operazione a premio",
+      "startDate": "2025-01-20",
+      "endDate": "2025-01-23"
+    },
+    {
+      "name": "Sanremo",
+      "type": "Operazione a premio",
+      "startDate": "2025-02-11",
+      "endDate": "2025-02-17"
+    },
+    {
+      "name": "Post Sanremo",
+      "type": "Operazione a premio",
+      "startDate": "2025-02-18",
+      "endDate": "2025-02-23"
+    },
+    {
+      "name": "Special Days",
+      "type": "Promo",
+      "startDate": "2025-03-03",
+      "endDate": "2025-03-10"
+    },
+    {
+      "name": "Nescafè",
+      "type": "Operazione a premio",
+      "startDate": "2025-03-17",
+      "endDate": "2025-03-20"
+    },
+    {
+      "name": "Spring Days",
+      "type": "Promo",
+      "startDate": "2025-03-27",
+      "endDate": "2025-04-10"
+    },
+    {
+      "name": "Fixa Time Summer",
+      "type": "Prodotto",
+      "startDate": "2025-05-04",
+      "endDate": "2025-05-25"
+    },
+    {
+      "name": "Fixa Time Promo",
+      "type": "Prodotto",
+      "startDate": "2025-06-03",
+      "endDate": "2025-06-10"
+    },
+    {
+      "name": "Smartwatch",
+      "type": "Operazione a premio",
+      "startDate": "2025-06-16",
+      "endDate": "2025-06-19"
+    },
+    {
+      "name": "Sunny Days",
+      "type": "Promo",
+      "startDate": "2025-06-20",
+      "endDate": "2025-06-29"
+    },
+    {
+      "name": "Action Camera",
+      "type": "Operazione a premio",
+      "startDate": "2025-06-30",
+      "endDate": "2025-07-03"
+    },
+    {
+      "name": "Special Days",
+      "type": "Promo",
+      "startDate": "2025-07-18",
+      "endDate": "2025-07-28"
+    },
+    {
+      "name": "The Fork",
+      "type": "Operazione a premio",
+      "startDate": "2025-07-29",
+      "endDate": "2025-08-02"
+    },
+    {
+      "name": "Dazn",
+      "type": "Operazione a premio",
+      "startDate": "2025-08-26",
+      "endDate": "2025-08-31"
+    },
+    {
+      "name": "Smart Days",
+      "type": "Promo",
+      "startDate": "2025-09-01",
+      "endDate": "2025-09-17"
+    },
+    {
+      "name": "Tablet",
+      "type": "Operazione a premio",
+      "startDate": "2025-09-01",
+      "endDate": "2025-09-08"
+    },
+    {
+      "name": "Fixa Time Smart",
+      "type": "Prodotto",
+      "startDate": "2025-09-05",
+      "endDate": "2025-09-17"
+    },
+    {
+      "name": "Fixa Time Smart",
+      "type": "Prodotto",
+      "startDate": "2025-09-18",
+      "endDate": "2025-09-27"
+    },
+    {
+      "name": "Special Days",
+      "type": "Promo",
+      "startDate": "2025-09-28",
+      "endDate": "2025-10-12"
+    },
+    {
+      "name": "Disney",
+      "type": "Operazione a premio",
+      "startDate": "2025-09-28",
+      "endDate": "2025-10-12"
+    },
+    {
+      "name": "Halloween",
+      "type": "Promo",
+      "startDate": "2025-10-30",
+      "endDate": "2025-11-04"
+    },
+    {
+      "name": "Friggitrice ad aria",
+      "type": "Operazione a premio",
+      "startDate": "2025-11-17",
+      "endDate": "2025-11-20"
+    },
+    {
+      "name": "Energy Days",
+      "type": "Promo",
+      "startDate": "2025-11-26",
+      "endDate": "2025-12-02"
+    },
+    {
+      "name": "Disney",
+      "type": "Operazione a premio",
+      "startDate": "2025-12-08",
+      "endDate": "2025-12-11"
+    },
+    {
+      "name": "Christmas Days",
+      "type": "Promo",
+      "startDate": "2025-12-15",
+      "endDate": "2025-12-18"
+    }
+  ]
+}
+
