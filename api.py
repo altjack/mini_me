@@ -1060,12 +1060,12 @@ def register_routes(app: Flask):
                 'error': 'start_date must be before or equal to end_date'
             }), 400
         
-        # Limite massimo 90 giorni
+        # Limite massimo 360 giorni
         days_diff = (end_date - start_date).days
-        if days_diff > 90:
+        if days_diff > 360:
             return jsonify({
                 'success': False,
-                'error': 'Maximum range is 90 days'
+                'error': 'Maximum range is 360 days'
             }), 400
         
         db = get_db()
@@ -1147,10 +1147,10 @@ def register_routes(app: Flask):
             }), 400
         
         days_diff = (end_date - start_date).days
-        if days_diff > 90:
+        if days_diff > 360:
             return jsonify({
                 'success': False,
-                'error': 'Maximum range is 90 days'
+                'error': 'Maximum range is 360 days'
             }), 400
         
         # Canali di interesse

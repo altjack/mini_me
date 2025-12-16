@@ -67,9 +67,9 @@ class handler(BaseHTTPRequestHandler):
                 return
             
             days_diff = (end_date - start_date).days
-            if days_diff > 90:
+            if days_diff > 360:
                 response = error_response(
-                    'Maximum range is 90 days',
+                    'Maximum range is 360 days',
                     400,
                     'validation'
                 )
