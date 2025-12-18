@@ -69,14 +69,14 @@ def list_extractors() -> List[Dict[str, str]]:
 
     Returns:
         Lista di dict con info sugli extractors:
-        [{'name': '...', 'table': '...', 'description': '...', 'delay_days': N}, ...]
+        [{'name': '...', 'table_name': '...', 'description': '...', 'ga4_delay_days': N}, ...]
     """
     return [
         {
             'name': ext.name,
-            'table': ext.table_name,
+            'table_name': ext.table_name,
             'description': ext.description,
-            'delay_days': ext.ga4_delay_days
+            'ga4_delay_days': ext.ga4_delay_days
         }
         for ext in _extractors.values()
     ]

@@ -14,6 +14,7 @@ import {
   Cell
 } from 'recharts';
 import promoCalendar from '../data/promoCalendar.json';
+import campaignCalendar from '../data/campaignCalendar.json';
 import { format, subDays, parseISO } from 'date-fns';
 import { it } from 'date-fns/locale';
 import { api } from '../services/api';
@@ -42,6 +43,9 @@ const PROMO_COLORS = {
   'Promo': '#10b981',                // emerald-500
   'Prodotto': '#8b5cf6',             // violet-500
 };
+
+// Colore per linee campagne commerciali
+const CAMPAIGN_COLOR = '#dc2626';  // red-600
 
 /**
  * Filtra le promozioni attive in un dato range di date
@@ -89,6 +93,44 @@ const DATE_PRESETS = [
 ];
 
 /**
+ * Trova le date di inizio campagne commerciali visibili nel range
+ * @param {string} rangeStart - Data inizio range (YYYY-MM-DD)
+ * @param {string} rangeEnd - Data fine range (YYYY-MM-DD)
+ * @returns {Array} - Campagne che iniziano nel range (per mostrare linee verticali)
+ */
+const getCampaignStartsInRange = (rangeStart, rangeEnd) => {
+  if (!rangeStart || !rangeEnd) return [];
+
+  const rangeStartDate = parseISO(rangeStart);
+  const rangeEndDate = parseISO(rangeEnd);
+
+  return campaignCalendar.campaigns.filter(campaign => {
+    const campaignStart = parseISO(campaign.startDate);
+    // Mostra la linea solo se la data di inizio cade nel range visualizzato
+    return campaignStart >= rangeStartDate && campaignStart <= rangeEndDate;
+  }).map(campaign => ({
+    ...campaign,
+    displayDate: format(parseISO(campaign.startDate), 'dd/MM', { locale: it })
+  }));
+};
+
+/**
+ * Trova la campagna commerciale attiva per una data specifica
+ * @param {string} dateStr - Data in formato YYYY-MM-DD
+ * @returns {Object|null} - Campagna attiva per quella data
+ */
+const getCampaignForDate = (dateStr) => {
+  if (!dateStr) return null;
+  const date = parseISO(dateStr);
+
+  return campaignCalendar.campaigns.find(campaign => {
+    const campaignStart = parseISO(campaign.startDate);
+    const campaignEnd = parseISO(campaign.endDate);
+    return date >= campaignStart && date <= campaignEnd;
+  }) || null;
+};
+
+/**
  * Trova le promozioni attive per una data specifica
  * @param {string} dateStr - Data in formato YYYY-MM-DD
  * @returns {Array} - Promozioni attive per quella data
@@ -116,6 +158,8 @@ const CustomTooltip = memo(({ active, payload }) => {
 
   // Trova promozioni attive per questa data
   const activePromosForDate = getPromosForDate(dataPoint.fullDate);
+  // Trova campagna commerciale attiva per questa data
+  const activeCampaign = getCampaignForDate(dataPoint.fullDate);
 
   return (
     <div className="bg-white border border-gray-200 rounded-lg shadow-lg p-3 min-w-[180px]">
@@ -128,15 +172,29 @@ const CustomTooltip = memo(({ active, payload }) => {
       <p className={`text-lg font-bold ${dataPoint.isWeekend ? 'text-violet-600' : 'text-blue-600'}`}>
         {dataPoint.swi?.toLocaleString('it-IT')} SWI
       </p>
-      
+
+      {/* Mostra campagna commerciale attiva */}
+      {activeCampaign && (
+        <div className="mt-2 pt-2 border-t border-gray-100">
+          <p className="text-xs text-gray-500 mb-1">Campagna commerciale:</p>
+          <div className="flex items-center gap-1.5 text-xs">
+            <span
+              className="w-2 h-2 rounded-full flex-shrink-0"
+              style={{ backgroundColor: CAMPAIGN_COLOR }}
+            />
+            <span className="font-medium text-gray-700">{activeCampaign.name}</span>
+          </div>
+        </div>
+      )}
+
       {/* Mostra promozioni attive */}
       {activePromosForDate.length > 0 && (
         <div className="mt-2 pt-2 border-t border-gray-100">
           <p className="text-xs text-gray-500 mb-1">Promo attive:</p>
           {activePromosForDate.map((promo, idx) => (
             <div key={idx} className="flex items-center gap-1.5 text-xs">
-              <span 
-                className="w-2 h-2 rounded-full flex-shrink-0" 
+              <span
+                className="w-2 h-2 rounded-full flex-shrink-0"
                 style={{ backgroundColor: PROMO_COLORS[promo.type] || '#9ca3af' }}
               />
               <span className="font-medium text-gray-700">{promo.name}</span>
@@ -317,6 +375,11 @@ function DashboardComponent() {
     return getActivePromos(startDate, endDate);
   }, [startDate, endDate]);
 
+  // Campagne commerciali che iniziano nel range visualizzato (per linee verticali)
+  const campaignStarts = useMemo(() => {
+    return getCampaignStartsInRange(startDate, endDate);
+  }, [startDate, endDate]);
+
   return (
     <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
       {/* Header */}
@@ -396,6 +459,11 @@ function DashboardComponent() {
             <span className="w-8 h-0.5 ml-3" style={{ backgroundColor: COLORS.average }}></span> Media periodo
             {/* Separatore visivo */}
             <span className="mx-2 text-gray-300">|</span>
+            {/* Legenda campagne commerciali */}
+            <span className="w-0.5 h-4 ml-1" style={{ backgroundColor: CAMPAIGN_COLOR }}></span>
+            <span className="text-xs">Cambio campagna</span>
+            {/* Separatore visivo */}
+            <span className="mx-2 text-gray-300">|</span>
             {/* Legenda promozioni */}
             <span className="text-gray-500 text-xs">Promo:</span>
             <span className="w-3 h-3 rounded opacity-60" style={{ backgroundColor: PROMO_COLORS['Operazione a premio'] }}></span>
@@ -454,6 +522,24 @@ function DashboardComponent() {
                 width={50}
               />
               <Tooltip content={<CustomTooltip />} />
+
+              {/* Reference lines per inizio campagne commerciali */}
+              {campaignStarts.map((campaign, index) => (
+                <ReferenceLine
+                  key={`campaign-${index}-${campaign.name}`}
+                  x={campaign.displayDate}
+                  stroke={CAMPAIGN_COLOR}
+                  strokeWidth={2}
+                  strokeDasharray="4 2"
+                  label={{
+                    value: campaign.name,
+                    position: 'top',
+                    fill: CAMPAIGN_COLOR,
+                    fontSize: 10,
+                    fontWeight: 600
+                  }}
+                />
+              ))}
 
               {/* Reference line for average */}
               {meta && (
