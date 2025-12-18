@@ -31,9 +31,9 @@ from typing import List, Set
 # Aggiungi directory parent al path (per import da ga4_extraction)
 sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 
-from ga4_extraction.database import GA4Database
-from ga4_extraction.redis_cache import GA4RedisCache
-from ga4_extraction.extraction import extract_for_date, save_to_database, extract_sessions_channels_delayed
+from backend.ga4_extraction.database import GA4Database
+from backend.ga4_extraction.redis_cache import GA4RedisCache
+from backend.ga4_extraction.extraction import extract_for_date, save_to_database, extract_sessions_channels_delayed, extract_sessions_campaigns_delayed
 
 # Configurazione logging - usa /tmp su Vercel/Lambda (filesystem read-only)
 # Check multipli: VERCEL, AWS_LAMBDA, o path in /var/task
@@ -129,6 +129,36 @@ def get_dates_missing_channels(db: GA4Database, start_date: str, end_date: str) 
     return dates_without_channels
 
 
+def get_dates_missing_campaigns(db: GA4Database, start_date: str, end_date: str) -> List[str]:
+    """
+    Identifica date che hanno metriche ma mancano dati per campagna.
+    
+    Args:
+        db: Istanza GA4Database
+        start_date: Data inizio (YYYY-MM-DD)
+        end_date: Data fine (YYYY-MM-DD)
+    
+    Returns:
+        Lista di date senza dati campagna (YYYY-MM-DD)
+    """
+    cursor = db.conn.cursor()
+    
+    # Date con metriche ma senza dati campagna
+    cursor.execute("""
+        SELECT dm.date
+        FROM daily_metrics dm
+        LEFT JOIN sessions_by_campaign sc ON dm.date = sc.date
+        WHERE dm.date BETWEEN ? AND ?
+        GROUP BY dm.date
+        HAVING COUNT(sc.id) = 0
+        ORDER BY dm.date
+    """, (start_date, end_date))
+    
+    dates_without_campaigns = [row[0] for row in cursor.fetchall()]
+    
+    return dates_without_campaigns
+
+
 def backfill_single_date(
     target_date: str,
     db: GA4Database,
@@ -164,7 +194,7 @@ def backfill_single_date(
     
     logger.info(f"✓ Dati principali salvati per {target_date}")
     
-    # Estrai sessioni per canale se richiesto
+    # Estrai sessioni per canale e campagna se richiesto
     if include_channels:
         logger.info(f"Estrazione sessioni per canale per {target_date}...")
         channel_success = extract_sessions_channels_delayed(target_date, db)
@@ -172,6 +202,13 @@ def backfill_single_date(
             logger.info(f"✓ Sessioni canale salvate per {target_date}")
         else:
             logger.warning(f"⚠ Sessioni canale non disponibili per {target_date} (ritardo GA4?)")
+        
+        logger.info(f"Estrazione sessioni per campagna per {target_date}...")
+        campaign_success = extract_sessions_campaigns_delayed(target_date, db)
+        if campaign_success:
+            logger.info(f"✓ Sessioni campagna salvate per {target_date}")
+        else:
+            logger.warning(f"⚠ Sessioni campagna non disponibili per {target_date} (ritardo GA4?)")
     
     return True
 
@@ -208,6 +245,11 @@ def main():
         '--only-channels',
         action='store_true',
         help='Recupera SOLO sessioni per canale per date esistenti'
+    )
+    parser.add_argument(
+        '--only-campaigns',
+        action='store_true',
+        help='Recupera SOLO sessioni per campagna per date esistenti'
     )
     parser.add_argument(
         '--db-path',
@@ -344,8 +386,108 @@ def main():
                 else:
                     failed_count += 1
                     print(f"✗ FALLITO")
+            
+            print()
+            print("=" * 80)
+            print("  ✅ ESTRAZIONE COMPLETATA")
+            print("=" * 80)
+            print(f"✓ Successi: {success_count}")
+            print(f"✗ Falliti: {failed_count}")
+            print()
+            
+            db.close()
+            if redis_cache:
+                redis_cache.close()
+            return 0 if failed_count == 0 else 1
+        
+        # Modalità: solo campagne
+        elif args.only_campaigns:
+                print("🔍 Ricerca date senza dati per campagna...")
+                dates_to_process = get_dates_missing_campaigns(db, start_date, end_date)
+                
+                if not dates_to_process:
+                    print("✓ Tutte le date hanno già dati per campagna")
+                    db.close()
+                    if redis_cache:
+                        redis_cache.close()
+                    return 0
+                
+                # Filtra date troppo recenti (< D-2)
+                today = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
+                min_date = (today - timedelta(days=2)).strftime('%Y-%m-%d')
+                
+                # Separa date valide e troppo recenti
+                valid_dates = [d for d in dates_to_process if d <= min_date]
+                recent_dates = [d for d in dates_to_process if d > min_date]
+                
+                if recent_dates:
+                    print(f"⚠️  ATTENZIONE: {len(recent_dates)} date troppo recenti (< D-2) escluse:")
+                    for date in recent_dates:
+                        days_diff = (today - datetime.strptime(date, '%Y-%m-%d')).days
+                        print(f"   • {date} (D-{days_diff}) - GA4 richiede almeno D-2")
+                    print()
+                
+                if not valid_dates:
+                    print("✗ Nessuna data valida per estrazione campagne (tutte < D-2)")
+                    print(f"💡 Le date più recenti saranno disponibili da: {(today + timedelta(days=1)).strftime('%Y-%m-%d')}")
+                    db.close()
+                    if redis_cache:
+                        redis_cache.close()
+                    return 0
+                
+                dates_to_process = valid_dates
+                
+                print(f"📋 Trovate {len(dates_to_process)} date valide senza dati campagna:")
+                for date in dates_to_process:
+                    print(f"   • {date}")
+                print()
+                
+                # Conferma
+                response = input("Procedere con estrazione sessioni per campagna? [y/N]: ")
+                if response.lower() != 'y':
+                    print("Operazione annullata")
+                    db.close()
+                    if redis_cache:
+                        redis_cache.close()
+                    return 0
                 
                 print()
+                print("=" * 80)
+                print("  🚀 INIZIO ESTRAZIONE SESSIONI PER CAMPAGNA")
+                print("=" * 80)
+                print()
+                
+                success_count = 0
+                failed_count = 0
+                
+                for i, date in enumerate(dates_to_process, 1):
+                    print(f"[{i}/{len(dates_to_process)}] Estrazione campagne per {date}...", end=' ', flush=True)
+                    
+                    try:
+                        campaign_success = extract_sessions_campaigns_delayed(date, db, skip_validation=True)
+                        if campaign_success:
+                            print(f"✓ OK")
+                            success_count += 1
+                        else:
+                            print(f"✗ FALLITO (dati non disponibili)")
+                            failed_count += 1
+                    except Exception as e:
+                        logger.error(f"Errore estrazione campagne per {date}: {e}", exc_info=True)
+                        print(f"✗ ERRORE: {e}")
+                        failed_count += 1
+                
+                print()
+                print("=" * 80)
+                print("  ✅ ESTRAZIONE COMPLETATA")
+                print("=" * 80)
+                print(f"✓ Successi: {success_count}")
+                print(f"✗ Falliti: {failed_count}")
+                print()
+                
+                db.close()
+                if redis_cache:
+                    redis_cache.close()
+                return 0 if failed_count == 0 else 1
         
         # Modalità: date mancanti
         else:
@@ -355,15 +497,20 @@ def main():
             if not missing_dates:
                 print("✓ Nessuna data mancante nel range specificato")
                 
-                # Controlla comunque se mancano dati canale
+                # Controlla comunque se mancano dati canale o campagna
                 if args.include_channels:
                     print()
-                    print("🔍 Verifica dati per canale...")
+                    print("🔍 Verifica dati per canale e campagna...")
                     dates_without_channels = get_dates_missing_channels(db, start_date, end_date)
+                    dates_without_campaigns = get_dates_missing_campaigns(db, start_date, end_date)
                     
                     if dates_without_channels:
                         print(f"⚠ Trovate {len(dates_without_channels)} date senza dati canale")
                         print("   Usa --only-channels per recuperarli")
+                    
+                    if dates_without_campaigns:
+                        print(f"⚠ Trovate {len(dates_without_campaigns)} date senza dati campagna")
+                        print("   Usa --only-campaigns per recuperarli")
                 
                 db.close()
                 if redis_cache:

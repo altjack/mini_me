@@ -21,6 +21,23 @@ const CHANNEL_COLORS = {
   'Paid Media e Display': '#8b5cf6', // violet-500
 };
 
+// Colori per le campagne - palette distinta
+const CAMPAIGN_COLORS = [
+  '#ef4444',  // red-500
+  '#f97316',  // orange-500
+  '#eab308',  // yellow-500
+  '#22c55e',  // green-500
+  '#14b8a6',  // teal-500
+  '#06b6d4',  // cyan-500
+  '#3b82f6',  // blue-500
+  '#8b5cf6',  // violet-500
+  '#d946ef',  // fuchsia-500
+  '#ec4899',  // pink-500
+];
+
+// Helper per ottenere colore campagna
+const getCampaignColor = (index) => CAMPAIGN_COLORS[index % CAMPAIGN_COLORS.length];
+
 const TOTAL_COLOR = '#3b82f6'; // blue-500
 
 /**
@@ -33,7 +50,7 @@ const CustomTooltipContent = memo(({ active, payload, activeTab }) => {
   if (!dataPoint) return null;
 
   return (
-    <div className="bg-white border border-gray-200 rounded-lg shadow-lg p-3 min-w-[180px]">
+    <div className="bg-white border border-gray-200 rounded-lg shadow-lg p-3 min-w-[180px] max-w-[280px]">
       <p className="text-sm font-medium text-gray-900 mb-2">
         {dataPoint.fullDate}
       </p>
@@ -42,17 +59,19 @@ const CustomTooltipContent = memo(({ active, payload, activeTab }) => {
           {dataPoint.value?.toLocaleString('it-IT')} sessioni
         </p>
       ) : (
-        <div className="space-y-1">
+        <div className="space-y-1 max-h-[200px] overflow-y-auto">
           {payload.map((entry, index) => (
             <div key={index} className="flex justify-between items-center gap-4">
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 min-w-0">
                 <span
-                  className="w-2 h-2 rounded-full"
+                  className="w-2 h-2 rounded-full flex-shrink-0"
                   style={{ backgroundColor: entry.color }}
                 />
-                <span className="text-xs text-gray-600">{entry.dataKey}</span>
+                <span className="text-xs text-gray-600 truncate" title={entry.dataKey}>
+                  {entry.dataKey}
+                </span>
               </div>
-              <span className="text-sm font-medium">
+              <span className="text-sm font-medium flex-shrink-0">
                 {entry.value?.toLocaleString('it-IT')}
               </span>
             </div>
@@ -93,11 +112,14 @@ function SessionsChartComponent({
   dataKey, // 'commodity' | 'lucegas'
   totals = [],
   byChannel = [],
+  byCampaign = [],
   loading = false,
-  channels = []
+  channels = [],
+  campaigns = []
 }) {
   const [activeTab, setActiveTab] = useState('totale');
   const [hiddenChannels, setHiddenChannels] = useState(new Set());
+  const [hiddenCampaigns, setHiddenCampaigns] = useState(new Set());
 
   // Trasforma i dati per il grafico "Totale" - memoized
   const totalChartData = useMemo(() => {
@@ -128,6 +150,26 @@ function SessionsChartComponent({
     );
   }, [byChannel, dataKey]);
 
+  // Trasforma i dati per il grafico "Per Campagna" - memoized
+  const campaignChartData = useMemo(() => {
+    const grouped = {};
+
+    byCampaign.forEach(item => {
+      const dateKey = item.date;
+      if (!grouped[dateKey]) {
+        grouped[dateKey] = {
+          date: format(parseISO(item.date), 'dd/MM', { locale: it }),
+          fullDate: item.date
+        };
+      }
+      grouped[dateKey][item.campaign] = item[dataKey];
+    });
+
+    return Object.values(grouped).sort((a, b) =>
+      a.fullDate.localeCompare(b.fullDate)
+    );
+  }, [byCampaign, dataKey]);
+
   // Toggle visibilità canale - useCallback per evitare ri-creazione
   const toggleChannel = useCallback((channel) => {
     setHiddenChannels(prev => {
@@ -141,17 +183,31 @@ function SessionsChartComponent({
     });
   }, []);
 
+  // Toggle visibilità campagna - useCallback per evitare ri-creazione
+  const toggleCampaign = useCallback((campaign) => {
+    setHiddenCampaigns(prev => {
+      const next = new Set(prev);
+      if (next.has(campaign)) {
+        next.delete(campaign);
+      } else {
+        next.add(campaign);
+      }
+      return next;
+    });
+  }, []);
+
   // Tab click handlers - useCallback
   const handleTotaleClick = useCallback(() => setActiveTab('totale'), []);
   const handleCanaleClick = useCallback(() => setActiveTab('canale'), []);
+  const handleCampagnaClick = useCallback(() => setActiveTab('campagna'), []);
 
   // Tooltip wrapper - passes activeTab to memoized component
   const renderTooltip = useCallback((props) => (
     <CustomTooltipContent {...props} activeTab={activeTab} />
   ), [activeTab]);
 
-  // Memoized legend render
-  const renderLegend = useMemo(() => (
+  // Memoized legend render for channels
+  const renderChannelLegend = useMemo(() => (
     <div className="flex flex-wrap justify-center gap-3 mt-2">
       {channels.map(channel => (
         <LegendButton
@@ -164,6 +220,21 @@ function SessionsChartComponent({
       ))}
     </div>
   ), [channels, hiddenChannels, toggleChannel]);
+
+  // Memoized legend render for campaigns
+  const renderCampaignLegend = useMemo(() => (
+    <div className="flex flex-wrap justify-center gap-2 mt-2 max-h-[60px] overflow-y-auto">
+      {campaigns.map((campaign, index) => (
+        <LegendButton
+          key={campaign}
+          channel={campaign}
+          isHidden={hiddenCampaigns.has(campaign)}
+          onClick={() => toggleCampaign(campaign)}
+          color={getCampaignColor(index)}
+        />
+      ))}
+    </div>
+  ), [campaigns, hiddenCampaigns, toggleCampaign]);
 
   return (
     <Card className="h-full">
@@ -191,6 +262,16 @@ function SessionsChartComponent({
             }`}
           >
             Per Canale
+          </button>
+          <button
+            onClick={handleCampagnaClick}
+            className={`px-3 py-1 text-xs font-medium rounded-md transition-colors ${
+              activeTab === 'campagna'
+                ? 'bg-white text-blue-600 shadow-sm'
+                : 'text-gray-600 hover:text-gray-900'
+            }`}
+          >
+            Per Campagna
           </button>
         </div>
       </div>
@@ -229,7 +310,7 @@ function SessionsChartComponent({
                   activeDot={{ r: 4, fill: TOTAL_COLOR }}
                 />
               </LineChart>
-            ) : (
+            ) : activeTab === 'canale' ? (
               <LineChart data={channelChartData} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" vertical={false} />
                 <XAxis
@@ -260,11 +341,45 @@ function SessionsChartComponent({
                   />
                 ))}
               </LineChart>
+            ) : (
+              <LineChart data={campaignChartData} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" vertical={false} />
+                <XAxis
+                  dataKey="date"
+                  tick={{ fontSize: 10, fill: '#6b7280' }}
+                  tickLine={false}
+                  axisLine={{ stroke: '#e5e7eb' }}
+                  interval="preserveStartEnd"
+                />
+                <YAxis
+                  tick={{ fontSize: 10, fill: '#6b7280' }}
+                  tickLine={false}
+                  axisLine={false}
+                  width={50}
+                  tickFormatter={(value) => value >= 1000 ? `${(value/1000).toFixed(0)}k` : value}
+                />
+                <Tooltip content={renderTooltip} />
+                {campaigns.map((campaign, index) => (
+                  <Line
+                    key={campaign}
+                    type="monotone"
+                    dataKey={campaign}
+                    stroke={getCampaignColor(index)}
+                    strokeWidth={2}
+                    dot={false}
+                    activeDot={{ r: 4 }}
+                    hide={hiddenCampaigns.has(campaign)}
+                  />
+                ))}
+              </LineChart>
             )}
           </ResponsiveContainer>
 
           {/* Legenda cliccabile per la vista canali */}
-          {activeTab === 'canale' && renderLegend}
+          {activeTab === 'canale' && renderChannelLegend}
+          
+          {/* Legenda cliccabile per la vista campagne */}
+          {activeTab === 'campagna' && renderCampaignLegend}
         </>
       )}
     </Card>

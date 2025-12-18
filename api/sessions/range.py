@@ -23,6 +23,9 @@ from _utils import (
 # Canali di interesse
 TARGET_CHANNELS = ['Paid Media e Display', 'Organic Search', 'Direct', 'Paid Search']
 
+# Top campagne da mostrare (le altre verranno raggruppate)
+MAX_CAMPAIGNS = 10
+
 
 class handler(BaseHTTPRequestHandler):
     """Vercel serverless handler per sessioni range."""
@@ -126,17 +129,76 @@ class handler(BaseHTTPRequestHandler):
                         'lucegas': row_dict['lucegas_sessions']
                     })
                 
+                # Recupera sessioni per campagna
+                by_campaign = []
+                
+                # Query per campagne - ordinate per totale sessioni
+                if db.db_type == 'postgresql':
+                    cursor.execute("""
+                        SELECT date, campaign, commodity_sessions, lucegas_sessions
+                        FROM sessions_by_campaign
+                        WHERE date BETWEEN %s AND %s
+                        ORDER BY date ASC, (commodity_sessions + lucegas_sessions) DESC
+                    """, (start_date_str, end_date_str))
+                else:
+                    cursor.execute("""
+                        SELECT date, campaign, commodity_sessions, lucegas_sessions
+                        FROM sessions_by_campaign
+                        WHERE date BETWEEN ? AND ?
+                        ORDER BY date ASC, (commodity_sessions + lucegas_sessions) DESC
+                    """, (start_date_str, end_date_str))
+                
+                # Raccogli tutte le campagne per calcolare le top
+                all_campaign_totals = {}
+                campaign_rows = cursor.fetchall()
+                
+                for row in campaign_rows:
+                    row_dict = dict(row) if hasattr(row, 'keys') else {
+                        'date': row[0],
+                        'campaign': row[1],
+                        'commodity_sessions': row[2],
+                        'lucegas_sessions': row[3]
+                    }
+                    campaign_name = row_dict['campaign']
+                    total = row_dict['commodity_sessions'] + row_dict['lucegas_sessions']
+                    all_campaign_totals[campaign_name] = all_campaign_totals.get(campaign_name, 0) + total
+                
+                # Determina le top campagne per volume
+                sorted_campaigns = sorted(all_campaign_totals.items(), key=lambda x: x[1], reverse=True)
+                top_campaigns = [c[0] for c in sorted_campaigns[:MAX_CAMPAIGNS]]
+                
+                # Costruisci by_campaign con solo le top campagne
+                for row in campaign_rows:
+                    row_dict = dict(row) if hasattr(row, 'keys') else {
+                        'date': row[0],
+                        'campaign': row[1],
+                        'commodity_sessions': row[2],
+                        'lucegas_sessions': row[3]
+                    }
+                    campaign_name = row_dict['campaign']
+                    
+                    # Includi solo le top campagne
+                    if campaign_name in top_campaigns:
+                        by_campaign.append({
+                            'date': str(row_dict['date']),
+                            'campaign': campaign_name,
+                            'commodity': row_dict['commodity_sessions'],
+                            'lucegas': row_dict['lucegas_sessions']
+                        })
+                
                 response = json_response({
                     'success': True,
                     'data': {
                         'totals': totals,
-                        'by_channel': by_channel
+                        'by_channel': by_channel,
+                        'by_campaign': by_campaign
                     },
                     'meta': {
                         'start_date': start_date_str,
                         'end_date': end_date_str,
                         'count': len(totals),
-                        'channels': TARGET_CHANNELS
+                        'channels': TARGET_CHANNELS,
+                        'campaigns': top_campaigns
                     }
                 })
             finally:

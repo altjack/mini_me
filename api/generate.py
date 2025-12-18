@@ -42,9 +42,9 @@ class handler(BaseHTTPRequestHandler):
             import sys
             sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
             
-            from workflows.service import DailyReportWorkflow
-            from workflows.config import ConfigLoader
-            from workflows.logging import LoggerFactory
+            from backend.workflows.service import DailyReportWorkflow
+            from backend.workflows.config import ConfigLoader
+            from backend.workflows.logging import LoggerFactory
             
             # Carica config
             config = ConfigLoader.load()

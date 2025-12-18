@@ -10,12 +10,9 @@ import os
 from typing import Optional, Tuple, Any
 import yaml
 
-import sys
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
-
-from ga4_extraction.database import GA4Database
-from ga4_extraction.redis_cache import GA4RedisCache
-from ga4_extraction.factory import GA4ResourceFactory
+from backend.ga4_extraction.database import GA4Database
+from backend.ga4_extraction.redis_cache import GA4RedisCache
+from backend.ga4_extraction.factory import GA4ResourceFactory
 
 logger = logging.getLogger(__name__)
 
@@ -113,7 +110,9 @@ class ToolSession:
         Returns:
             Configuration dictionary.
         """
-        config_path = os.path.join(os.path.dirname(__file__), '..', 'config.yaml')
+        # Path al config.yaml nella root del progetto
+        # Da backend/agent/session.py -> ../../config.yaml
+        config_path = os.path.join(os.path.dirname(__file__), '..', '..', 'config.yaml')
         
         with open(config_path, 'r') as f:
             return yaml.safe_load(f)
@@ -160,7 +159,9 @@ def _create_connections_legacy() -> Tuple[GA4Database, Optional[GA4RedisCache]]:
     
     This is called when no ToolSession is active.
     """
-    config_path = os.path.join(os.path.dirname(__file__), '..', 'config.yaml')
+    # Path al config.yaml nella root del progetto
+    # Da backend/agent/session.py -> ../../config.yaml
+    config_path = os.path.join(os.path.dirname(__file__), '..', '..', 'config.yaml')
     
     with open(config_path, 'r') as f:
         config = yaml.safe_load(f)

@@ -11,18 +11,15 @@ from typing import Dict, Any, Tuple, Optional
 import pandas
 from datapizza.tools import tool
 
-# Aggiungi il percorso del modulo ga4_extraction al path
-sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
-
-from ga4_extraction.extraction import (
-    esegui_giornaliero, 
+from backend.ga4_extraction.extraction import (
+    esegui_giornaliero,
     calculate_dates,
     save_results_to_csv,
     create_combined_report
 )
-from ga4_extraction.database import GA4Database
-from ga4_extraction.redis_cache import GA4RedisCache
-from agent.session import get_connections
+from backend.ga4_extraction.database import GA4Database
+from backend.ga4_extraction.redis_cache import GA4RedisCache
+from backend.agent.session import get_connections
 
 # Configurazione del logger - usa /tmp su Vercel/Lambda (filesystem read-only)
 _is_serverless = os.getenv('VERCEL') or os.getenv('AWS_LAMBDA_FUNCTION_NAME') or __file__.startswith('/var/task')
@@ -560,7 +557,9 @@ def _get_db_instances():
     Helper per ottenere istanze database e cache.
     Carica config e crea connessioni.
     """
-    config_path = os.path.join(os.path.dirname(__file__), '..', 'config.yaml')
+    # Path al config.yaml nella root del progetto
+    # Da backend/agent/tools.py -> ../../config.yaml
+    config_path = os.path.join(os.path.dirname(__file__), '..', '..', 'config.yaml')
 
     with open(config_path, 'r') as f:
         config = yaml.safe_load(f)
@@ -594,7 +593,7 @@ def _get_db_instances():
 
 def _load_promo_calendar() -> pandas.DataFrame:
     """
-    Helper per caricare il calendario promozioni da CSV.
+    Helper per caricare il calendario promozioni da JSON.
 
     Returns:
         DataFrame con calendario promozioni
@@ -602,18 +601,31 @@ def _load_promo_calendar() -> pandas.DataFrame:
     Raises:
         FileNotFoundError: Se file non trovato
     """
-    promo_path = os.path.join(os.path.dirname(__file__), '..', 'data', 'promo_calendar_2025.csv')
+    import json
+    
+    # Path al file JSON in src/data/ (relativo alla root del progetto)
+    # Da backend/agent/tools.py -> ../../src/data/promoCalendar.json
+    promo_path = os.path.join(os.path.dirname(__file__), '..', '..', 'src', 'data', 'promoCalendar.json')
 
     if not os.path.exists(promo_path):
-        raise FileNotFoundError("File calendario promozioni non trovato")
+        raise FileNotFoundError(f"File calendario promozioni non trovato: {promo_path}")
 
-    df = pandas.read_csv(promo_path)
-
-    # Strip whitespace from column names and values
-    df.columns = df.columns.str.strip()
-    for col in df.columns:
-        if df[col].dtype == 'object':
-            df[col] = df[col].str.strip()
+    with open(promo_path, 'r', encoding='utf-8') as f:
+        data = json.load(f)
+    
+    # Converti in DataFrame
+    df = pandas.DataFrame(data['promos'])
+    
+    # Rinomina colonne per compatibilità con il codice esistente
+    df = df.rename(columns={
+        'name': 'nome_promo',
+        'type': 'Tipoologia',
+        'startDate': 'data_inizio',
+        'endDate': 'data_fine',
+        'product': 'prodotto',
+        'contractType': 'tipologia_contratto',
+        'conditions': 'condizioni'
+    })
 
     # Convert date columns to datetime and normalize to date only (no time)
     df['data_inizio'] = pandas.to_datetime(df['data_inizio']).dt.normalize()

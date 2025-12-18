@@ -7,9 +7,9 @@ Contains individual step implementations:
 - ApprovalStep: Draft approval and archival
 """
 
-from workflows.steps.extraction import ExtractionStep
-from workflows.steps.generation import GenerationStep
-from workflows.steps.approval import ApprovalStep
+from .extraction import ExtractionStep
+from .generation import GenerationStep
+from .approval import ApprovalStep
 
 __all__ = [
     'ExtractionStep',

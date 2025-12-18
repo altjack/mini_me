@@ -15,7 +15,7 @@ from datetime import datetime, timedelta
 # Aggiungi directory parent al path
 sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 
-from ga4_extraction.extraction import validate_date_for_channels
+from backend.ga4_extraction.extraction import validate_date_for_channels
 
 
 def test_validation():

@@ -15,7 +15,7 @@ def test_agent_imports():
     print("🔧 Test 1: Verifica importazioni...")
     
     try:
-        from agent.agent import agent, available_tools
+        from backend.agent.agent import agent, available_tools
         print("✅ Agente importato con successo")
         
         # Verifica che tutti i tool siano stati importati
@@ -47,7 +47,7 @@ def test_tools_direct():
     print("\n🔧 Test 2: Test diretto dei tool...")
     
     try:
-        from agent.tools import get_daily_report, get_metrics_summary
+        from backend.agent.tools import get_daily_report, get_metrics_summary
         
         # Testa get_daily_report con una data fittizia
         print("📅 Testando get_daily_report...")
@@ -70,7 +70,7 @@ def test_agent_creation():
     print("\n🔧 Test 3: Creazione agente...")
     
     try:
-        from agent.agent import agent
+        from backend.agent.agent import agent
         
         # Verifica che l'agente abbia i tool associati
         if hasattr(agent, 'tools'):
@@ -91,7 +91,7 @@ def test_workflow_simulation():
     print("\n🔧 Test 4: Simulazione workflow...")
     
     try:
-        from agent.tools import generate_email_content
+        from backend.agent.tools import generate_email_content
         
         # Simula dati di test
         test_summary = """

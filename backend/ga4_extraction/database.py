@@ -66,11 +66,11 @@ def get_database_connection(db_url: Optional[str] = None):
 
 class GA4Database:
     """Manager per database delle metriche GA4 (SQLite/PostgreSQL)."""
-    
-    def __init__(self, db_path: Optional[str] = None, conn=None, owns_connection: bool = True):
+
+    def __init__(self, db_path: Optional[str] = None, conn=None, owns_connection: bool = True, run_migrations: bool = True):
         """
         Inizializza connessione al database.
-        
+
         Args:
             db_path: Percorso file database SQLite o URL PostgreSQL.
                      Se None, usa DATABASE_URL env var o default SQLite.
@@ -78,9 +78,10 @@ class GA4Database:
                   Se fornita, db_path viene ignorato.
             owns_connection: Se False, la connessione non verrà chiusa in close().
                            Utile quando si usa connection pooling.
+            run_migrations: Se True, esegue migrations pendenti all'avvio (default: True)
         """
         self._owns_connection = owns_connection
-        
+
         if conn is not None:
             # Usa connessione fornita (da pool)
             self.conn = conn
@@ -98,7 +99,7 @@ class GA4Database:
             # Crea nuova connessione (comportamento originale)
             # Controlla se è un URL PostgreSQL o path SQLite
             database_url = os.getenv('DATABASE_URL')
-            
+
             if database_url and database_url.startswith(('postgres://', 'postgresql://')):
                 # PostgreSQL mode
                 self.conn, self.db_type = get_database_connection(database_url)
@@ -109,9 +110,47 @@ class GA4Database:
                 self.db_path = db_path or "data/ga4_data.db"
                 self.conn, self.db_type = get_database_connection(f"sqlite:///{self.db_path}")
                 logger.info(f"Database connesso: SQLite ({self.db_path})")
-        
+
         self._placeholder = '%s' if self.db_type == 'postgresql' else '?'
-    
+
+        # Esegui migrations pendenti all'avvio
+        if run_migrations:
+            self._run_migrations()
+
+    def _run_migrations(self):
+        """
+        Esegue migrations pendenti sul database.
+
+        Viene chiamato automaticamente all'inizializzazione se run_migrations=True.
+        """
+        try:
+            from backend.migrations import MigrationRunner
+            runner = MigrationRunner(self.conn, self.db_type)
+
+            status = runner.get_status()
+            if status['pending_count'] > 0:
+                logger.info(f"Trovate {status['pending_count']} migrations pendenti")
+                applied, failed, messages = runner.run_all_pending()
+
+                if failed > 0:
+                    logger.error(f"Migrations fallite: {failed}")
+                    for msg in messages:
+                        logger.error(f"  {msg}")
+                else:
+                    logger.info(f"Migrations applicate con successo: {applied}")
+            else:
+                logger.debug("Nessuna migration pendente")
+
+        except ImportError as e:
+            # Se il modulo migrations non è disponibile, usa fallback a create_schema
+            logger.warning(f"Modulo migrations non disponibile ({e}), uso create_schema come fallback")
+            self.create_schema()
+        except Exception as e:
+            logger.error(f"Errore durante migrations: {e}")
+            # Fallback a create_schema per garantire che le tabelle esistano
+            logger.info("Fallback a create_schema")
+            self.create_schema()
+
     def _ph(self, count: int = 1) -> str:
         """Genera placeholder per query parametrizzate."""
         return ', '.join([self._placeholder] * count)
@@ -197,6 +236,28 @@ class GA4Database:
                 ON sessions_by_channel(channel)
             """)
             
+            # Tabella sessioni per campagna
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS sessions_by_campaign (
+                    id SERIAL PRIMARY KEY,
+                    date DATE NOT NULL,
+                    campaign TEXT NOT NULL,
+                    commodity_sessions INTEGER NOT NULL,
+                    lucegas_sessions INTEGER NOT NULL,
+                    UNIQUE(date, campaign)
+                )
+            """)
+            
+            cursor.execute("""
+                CREATE INDEX IF NOT EXISTS idx_campaign_date 
+                ON sessions_by_campaign(date DESC)
+            """)
+            
+            cursor.execute("""
+                CREATE INDEX IF NOT EXISTS idx_campaign_name 
+                ON sessions_by_campaign(campaign)
+            """)
+            
         else:
             # SQLite schema (originale)
             cursor.execute("""
@@ -260,6 +321,29 @@ class GA4Database:
             cursor.execute("""
                 CREATE INDEX IF NOT EXISTS idx_channel_name 
                 ON sessions_by_channel(channel)
+            """)
+            
+            # Tabella sessioni per campagna
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS sessions_by_campaign (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    date DATE NOT NULL,
+                    campaign TEXT NOT NULL,
+                    commodity_sessions INTEGER NOT NULL,
+                    lucegas_sessions INTEGER NOT NULL,
+                    FOREIGN KEY (date) REFERENCES daily_metrics(date) ON DELETE CASCADE,
+                    UNIQUE(date, campaign)
+                )
+            """)
+            
+            cursor.execute("""
+                CREATE INDEX IF NOT EXISTS idx_campaign_date 
+                ON sessions_by_campaign(date DESC)
+            """)
+            
+            cursor.execute("""
+                CREATE INDEX IF NOT EXISTS idx_campaign_name 
+                ON sessions_by_campaign(campaign)
             """)
         
         self.conn.commit()
@@ -487,6 +571,89 @@ class GA4Database:
         ph = self._placeholder
         cursor.execute(f"""
             SELECT * FROM sessions_by_channel 
+            WHERE date = {ph}
+            ORDER BY commodity_sessions DESC
+        """, (date,))
+        
+        rows = cursor.fetchall()
+        return [dict(row) for row in rows]
+    
+    def insert_sessions_by_campaign(
+        self, 
+        date: str, 
+        campaigns: List[Dict[str, Any]],
+        replace: bool = True
+    ) -> bool:
+        """
+        Inserisce sessioni per campagna per una data.
+        
+        Args:
+            date: Data in formato YYYY-MM-DD
+            campaigns: Lista di dict con campaign, commodity_sessions, lucegas_sessions
+            replace: Se True, elimina sessioni esistenti per quella data
+        
+        Returns:
+            True se successo, False altrimenti
+        """
+        try:
+            cursor = self.conn.cursor()
+            ph = self._placeholder
+            
+            # Se replace, elimina sessioni esistenti per questa data
+            if replace:
+                cursor.execute(
+                    f"DELETE FROM sessions_by_campaign WHERE date = {ph}",
+                    (date,)
+                )
+            
+            # Inserisci nuove campagne
+            for campaign in campaigns:
+                if self.db_type == 'postgresql':
+                    cursor.execute("""
+                        INSERT INTO sessions_by_campaign 
+                        (date, campaign, commodity_sessions, lucegas_sessions)
+                        VALUES (%s, %s, %s, %s)
+                    """, (
+                        date,
+                        campaign['campaign'],
+                        campaign['commodity_sessions'],
+                        campaign['lucegas_sessions']
+                    ))
+                else:
+                    cursor.execute("""
+                        INSERT INTO sessions_by_campaign 
+                        (date, campaign, commodity_sessions, lucegas_sessions)
+                        VALUES (?, ?, ?, ?)
+                    """, (
+                        date,
+                        campaign['campaign'],
+                        campaign['commodity_sessions'],
+                        campaign['lucegas_sessions']
+                    ))
+            
+            self.conn.commit()
+            logger.info(f"Sessioni per campagna salvate per data {date}: {len(campaigns)} campagne")
+            return True
+            
+        except Exception as e:
+            logger.error(f"Errore inserimento sessioni per campagna per {date}: {e}")
+            self.conn.rollback()
+            return False
+    
+    def get_sessions_by_campaign(self, date: str) -> List[Dict[str, Any]]:
+        """
+        Recupera sessioni per campagna per una data.
+        
+        Args:
+            date: Data in formato YYYY-MM-DD
+        
+        Returns:
+            Lista di dict con sessioni per campagna ordinate per commodity_sessions DESC
+        """
+        cursor = self.conn.cursor()
+        ph = self._placeholder
+        cursor.execute(f"""
+            SELECT * FROM sessions_by_campaign 
             WHERE date = {ph}
             ORDER BY commodity_sessions DESC
         """, (date,))

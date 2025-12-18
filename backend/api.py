@@ -17,6 +17,10 @@ from dotenv import load_dotenv
 # Carica variabili d'ambiente da .env (se esiste)
 load_dotenv()
 import sys
+
+# Aggiungi la root del progetto al Python path (per import backend.*)
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
 import argparse
 import base64
 from datetime import datetime, timedelta, timezone
@@ -32,12 +36,12 @@ try:
 except ImportError:
     jwt = None
 
-from workflows.service import DailyReportWorkflow
-from workflows.config import ConfigLoader, ConfigurationError
-from workflows.logging import LoggerFactory
-from workflows.result_types import StepStatus
-from ga4_extraction.database import GA4Database
-from db_pool import get_pool, close_pool
+from backend.workflows.service import DailyReportWorkflow
+from backend.workflows.config import ConfigLoader, ConfigurationError
+from backend.workflows.logging import LoggerFactory
+from backend.workflows.result_types import StepStatus
+from backend.ga4_extraction.database import GA4Database
+from backend.db_pool import get_pool, close_pool
 
 
 # =============================================================================
@@ -875,8 +879,8 @@ def register_routes(app: Flask):
         max_channel_date = today - timedelta(days=2)
         
         # Import backfill function
-        from scripts.backfill_missing_dates import backfill_single_date
-        from ga4_extraction.extraction import extract_sessions_channels_delayed
+        from backend.scripts.backfill_missing_dates import backfill_single_date
+        from backend.ga4_extraction.extraction import extract_sessions_channels_delayed, extract_sessions_campaigns_delayed
         
         # Setup risorse
         db = get_db()
@@ -886,7 +890,7 @@ def register_routes(app: Flask):
             # Tenta connessione Redis (opzionale)
             redis_config = ConfigLoader.get_redis_config(config)
             if redis_config:
-                from ga4_extraction.redis_cache import GA4RedisCache
+                from backend.ga4_extraction.redis_cache import GA4RedisCache
                 try:
                     redis_cache = GA4RedisCache(
                         host=redis_config.get('host', 'localhost'),
@@ -914,10 +918,17 @@ def register_routes(app: Flask):
                     
                     # Estrai canali solo se richiesto E data <= D-2
                     channels_extracted = False
+                    campaigns_extracted = False
                     if include_channels and current_date <= max_channel_date:
                         channels_extracted = extract_sessions_channels_delayed(
                             date_str, 
                             db, 
+                            skip_validation=True  # Già validato sopra
+                        )
+                        # Estrai anche campagne (stesso ritardo GA4)
+                        campaigns_extracted = extract_sessions_campaigns_delayed(
+                            date_str,
+                            db,
                             skip_validation=True  # Già validato sopra
                         )
                     
@@ -925,6 +936,7 @@ def register_routes(app: Flask):
                         'date': date_str,
                         'success': success,
                         'channels_extracted': channels_extracted if include_channels else None,
+                        'campaigns_extracted': campaigns_extracted if include_channels else None,
                         'error': None
                     })
                 except Exception as e:
@@ -933,6 +945,7 @@ def register_routes(app: Flask):
                         'date': date_str,
                         'success': False,
                         'channels_extracted': False if include_channels else None,
+                        'campaigns_extracted': False if include_channels else None,
                         'error': str(e)
                     })
                 

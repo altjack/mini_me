@@ -13,8 +13,8 @@ import logging
 from datetime import datetime
 from typing import Optional, Dict, Any
 
-from workflows.result_types import GenerationResult, StepStatus
-from agent.session import ToolSession
+from backend.workflows.result_types import GenerationResult, StepStatus
+from backend.agent.session import ToolSession
 
 
 class GenerationStep:
@@ -53,7 +53,7 @@ class GenerationStep:
             # 1. L'import avviene solo quando il metodo è chiamato
             # 2. Non c'è dipendenza circolare a livello di modulo
             # 3. Il costo dell'import è ammortizzato (Python cache)
-            from agent.agent import create_agent_with_memory
+            from backend.agent.agent import create_agent_with_memory
             
             # Crea agent
             model = self.config['agent']['model']

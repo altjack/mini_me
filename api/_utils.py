@@ -64,7 +64,7 @@ def get_db():
     Factory per connessione database PostgreSQL.
     Usa DATABASE_URL da environment variables.
     """
-    from ga4_extraction.database import GA4Database
+    from backend.ga4_extraction.database import GA4Database
     return GA4Database()
 
 

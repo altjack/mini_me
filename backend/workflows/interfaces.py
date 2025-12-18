@@ -6,7 +6,7 @@ Enables dependency injection and testing with mock implementations.
 """
 
 from typing import Protocol, Optional, runtime_checkable
-from workflows.result_types import ExtractionResult, GenerationResult, ApprovalResult
+from .result_types import ExtractionResult, GenerationResult, ApprovalResult
 
 
 @runtime_checkable

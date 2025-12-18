@@ -34,9 +34,9 @@ from typing import List, Tuple, Dict, Any
 # Aggiungi directory parent al path (per import da ga4_extraction)
 sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 
-from ga4_extraction.database import GA4Database
-from ga4_extraction.redis_cache import GA4RedisCache
-from ga4_extraction.extraction import (
+from backend.ga4_extraction.database import GA4Database
+from backend.ga4_extraction.redis_cache import GA4RedisCache
+from backend.ga4_extraction.extraction import (
     extract_for_date,
     save_to_database,
     extract_sessions_channels_delayed

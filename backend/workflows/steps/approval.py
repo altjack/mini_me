@@ -14,7 +14,7 @@ import logging
 from datetime import datetime
 from typing import Optional, Dict, Any
 
-from workflows.result_types import ApprovalResult, StepStatus
+from backend.workflows.result_types import ApprovalResult, StepStatus
 
 
 class ApprovalStep:
@@ -172,7 +172,7 @@ class ApprovalStep:
     def _add_to_redis_memory(self, email_content: str) -> bool:
         """Aggiunge email approvata a Redis Memory per few-shot learning."""
         try:
-            from agent.load_memory import add_approved_message
+            from backend.agent.load_memory import add_approved_message
             success = add_approved_message(email_content, config_path="config.yaml")
             
             if success:
@@ -196,7 +196,7 @@ class ApprovalStep:
         Formato richiesto: ## EMAIL dd/mm/yyyy DD-MM-YYYY
         """
         try:
-            from agent.examples import add_new_example
+            from backend.agent.examples import add_new_example
             
             date_str = datetime.now().strftime('%d-%m-%Y')
             add_new_example(email_content, date_str, file_path="history.md")

@@ -6,9 +6,9 @@ from datetime import datetime, timedelta
 #Aggiungi path progetto
 sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 
-from agent.tools import get_weekend_report
-from ga4_extraction.database import GA4Database
-from ga4_extraction.factory import GA4ResourceFactory
+from backend.agent.tools import get_weekend_report
+from backend.ga4_extraction.database import GA4Database
+from backend.ga4_extraction.factory import GA4ResourceFactory
 
 class TestWeekend(unittest.TestCase):
 

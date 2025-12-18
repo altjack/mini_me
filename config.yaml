@@ -142,12 +142,15 @@ examples:
 logging:
   # Livello log (DEBUG, INFO, WARNING, ERROR, CRITICAL)
   level: "INFO"
-  
+
+  # Directory per i log
+  log_dir: "logs"
+
   # File log per operazioni agente
-  agent_log: "agent_execution.log"
-  
+  agent_log: "logs/agent_execution.log"
+
   # File log per operazioni memoria
-  memory_log: "memory_operations.log"
+  memory_log: "logs/memory_operations.log"
 
 # Opzioni Avanzate
 advanced:

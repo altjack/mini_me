@@ -11,8 +11,8 @@ import logging
 from typing import Optional
 from datetime import datetime, timedelta
 
-from ga4_extraction.services import GA4DataService
-from workflows.result_types import ExtractionResult, StepStatus
+from backend.ga4_extraction.services import GA4DataService
+from backend.workflows.result_types import ExtractionResult, StepStatus
 
 
 class ExtractionStep:

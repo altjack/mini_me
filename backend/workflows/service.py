@@ -18,27 +18,27 @@ from typing import Optional, Dict, Any
 from datetime import datetime
 from pathlib import Path
 
-from ga4_extraction.factory import GA4ResourceFactory
-from ga4_extraction.services import GA4DataService
+from backend.ga4_extraction.factory import GA4ResourceFactory
+from backend.ga4_extraction.services import GA4DataService
 
-from workflows.config import ConfigLoader
-from workflows.logging import LoggerFactory
-from workflows.result_types import (
-    WorkflowResult, 
-    ExtractionResult, 
-    GenerationResult, 
+from backend.workflows.config import ConfigLoader
+from backend.workflows.logging import LoggerFactory
+from backend.workflows.result_types import (
+    WorkflowResult,
+    ExtractionResult,
+    GenerationResult,
     ApprovalResult,
     StepStatus,
     StepResult
 )
-from workflows.interfaces import (
+from backend.workflows.interfaces import (
     ExtractionStepProtocol,
     GenerationStepProtocol,
     ApprovalStepProtocol
 )
-from workflows.steps.extraction import ExtractionStep
-from workflows.steps.generation import GenerationStep
-from workflows.steps.approval import ApprovalStep
+from backend.workflows.steps.extraction import ExtractionStep
+from backend.workflows.steps.generation import GenerationStep
+from backend.workflows.steps.approval import ApprovalStep
 
 
 class DailyReportWorkflow:

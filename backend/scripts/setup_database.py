@@ -14,8 +14,8 @@ from pathlib import Path
 # Aggiungi directory parent al path (per import da ga4_extraction)
 sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 
-from ga4_extraction.database import GA4Database
-from ga4_extraction.redis_cache import GA4RedisCache
+from backend.ga4_extraction.database import GA4Database
+from backend.ga4_extraction.redis_cache import GA4RedisCache
 
 # Setup logging
 log_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'logs')

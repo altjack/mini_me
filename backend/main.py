@@ -9,9 +9,9 @@ Usage:
 import sys
 import argparse
 
-from workflows.service import DailyReportWorkflow
-from workflows.config import ConfigLoader, ConfigurationError
-from workflows.result_types import StepStatus
+from backend.workflows.service import DailyReportWorkflow
+from backend.workflows.config import ConfigLoader, ConfigurationError
+from backend.workflows.result_types import StepStatus
 
 
 def print_result(result) -> None:

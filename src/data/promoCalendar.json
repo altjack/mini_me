@@ -4,158 +4,235 @@
       "name": "Purificatore",
       "type": "Operazione a premio",
       "startDate": "2025-01-09",
-      "endDate": "2025-01-13"
+      "endDate": "2025-01-13",
+      "product": "Fixa",
+      "contractType": "Dual",
+      "conditions": "Purificatore gratis"
     },
     {
       "name": "Dazn",
       "type": "Operazione a premio",
       "startDate": "2025-01-20",
-      "endDate": "2025-01-23"
+      "endDate": "2025-01-23",
+      "product": "Fixa",
+      "contractType": "Dual",
+      "conditions": "4 mesi di abbonamento a Dazn gratis"
     },
     {
       "name": "Sanremo",
       "type": "Operazione a premio",
       "startDate": "2025-02-11",
-      "endDate": "2025-02-17"
+      "endDate": "2025-02-17",
+      "product": "Fixa",
+      "contractType": "Dual",
+      "conditions": "30€ di buoni carburanti Enilive"
     },
     {
       "name": "Post Sanremo",
       "type": "Operazione a premio",
       "startDate": "2025-02-18",
-      "endDate": "2025-02-23"
+      "endDate": "2025-02-23",
+      "product": "Fixa",
+      "contractType": "Dual",
+      "conditions": "Un oggetto a scelta tra 5 prodotti per la musica"
     },
     {
       "name": "Special Days",
       "type": "Promo",
       "startDate": "2025-03-03",
-      "endDate": "2025-03-10"
+      "endDate": "2025-03-10",
+      "product": "Fixa",
+      "contractType": "Dual",
+      "conditions": "Sconto 120€ bolletta + sconto online 20€"
     },
     {
       "name": "Nescafè",
       "type": "Operazione a premio",
       "startDate": "2025-03-17",
-      "endDate": "2025-03-20"
+      "endDate": "2025-03-20",
+      "product": "Fixa",
+      "contractType": "Dual",
+      "conditions": "Macchina Nescafè + capsule"
     },
     {
       "name": "Spring Days",
       "type": "Promo",
       "startDate": "2025-03-27",
-      "endDate": "2025-04-10"
+      "endDate": "2025-04-10",
+      "product": "Fixa",
+      "contractType": "Mono/Dual",
+      "conditions": "Sconto 30% per un anno + sconto online 40€"
     },
     {
       "name": "Fixa Time Summer",
       "type": "Prodotto",
       "startDate": "2025-05-04",
-      "endDate": "2025-05-25"
+      "endDate": "2025-05-25",
+      "product": "Fixa",
+      "contractType": "Mono/Dual",
+      "conditions": "Sconto 30% per i primi 3 mesi + sconto online 40€"
     },
     {
       "name": "Fixa Time Promo",
       "type": "Prodotto",
       "startDate": "2025-06-03",
-      "endDate": "2025-06-10"
+      "endDate": "2025-06-10",
+      "product": "Fixa",
+      "contractType": "Mono/Dual",
+      "conditions": "Sconto 20% per 1 anno + sconto online 40€"
     },
     {
       "name": "Smartwatch",
       "type": "Operazione a premio",
       "startDate": "2025-06-16",
-      "endDate": "2025-06-19"
+      "endDate": "2025-06-19",
+      "product": "Fixa",
+      "contractType": "Dual",
+      "conditions": "Smartwatch gratis"
     },
     {
       "name": "Sunny Days",
       "type": "Promo",
       "startDate": "2025-06-20",
-      "endDate": "2025-06-29"
+      "endDate": "2025-06-29",
+      "product": "Fixa",
+      "contractType": "Mono",
+      "conditions": "Sconto 20% per 1 anno + sconto online 40€"
     },
     {
       "name": "Action Camera",
       "type": "Operazione a premio",
       "startDate": "2025-06-30",
-      "endDate": "2025-07-03"
+      "endDate": "2025-07-03",
+      "product": "Fixa",
+      "contractType": "Dual",
+      "conditions": "GoPro gratis"
     },
     {
       "name": "Special Days",
       "type": "Promo",
       "startDate": "2025-07-18",
-      "endDate": "2025-07-28"
+      "endDate": "2025-07-28",
+      "product": "Fixa",
+      "contractType": "Mono",
+      "conditions": "Sconto 20% per 1 anno + sconto online 40€"
     },
     {
       "name": "The Fork",
       "type": "Operazione a premio",
       "startDate": "2025-07-29",
-      "endDate": "2025-08-02"
+      "endDate": "2025-08-02",
+      "product": "Fixa",
+      "contractType": "Dual",
+      "conditions": "Voucher The Fork di 100€"
     },
     {
       "name": "Dazn",
       "type": "Operazione a premio",
       "startDate": "2025-08-26",
-      "endDate": "2025-08-31"
+      "endDate": "2025-08-31",
+      "product": "Fixa",
+      "contractType": "Dual",
+      "conditions": "4 mesi di abbonamento a Dazn gratis"
     },
     {
       "name": "Smart Days",
       "type": "Promo",
       "startDate": "2025-09-01",
-      "endDate": "2025-09-17"
+      "endDate": "2025-09-17",
+      "product": "Fixa",
+      "contractType": "Mono/Dual",
+      "conditions": "Sconto 20% per 1 anno su fascia F1"
     },
     {
       "name": "Tablet",
       "type": "Operazione a premio",
       "startDate": "2025-09-01",
-      "endDate": "2025-09-08"
+      "endDate": "2025-09-08",
+      "product": "Fixa",
+      "contractType": "Dual",
+      "conditions": "Tablet gratis"
     },
     {
       "name": "Fixa Time Smart",
       "type": "Prodotto",
       "startDate": "2025-09-05",
-      "endDate": "2025-09-17"
+      "endDate": "2025-09-17",
+      "product": "Fixa",
+      "contractType": "Mono/Dual",
+      "conditions": "Sconto 50% su costi commercializzazione luce"
     },
     {
       "name": "Fixa Time Smart",
       "type": "Prodotto",
       "startDate": "2025-09-18",
-      "endDate": "2025-09-27"
+      "endDate": "2025-09-27",
+      "product": "Fixa",
+      "contractType": "Mono/Dual",
+      "conditions": "Sconto 50% su costi commercializzazione luce e/o gas"
     },
     {
       "name": "Special Days",
       "type": "Promo",
       "startDate": "2025-09-28",
-      "endDate": "2025-10-12"
+      "endDate": "2025-10-12",
+      "product": "Fixa",
+      "contractType": "Mono/Dual",
+      "conditions": "Sconto 20% per 1 anno"
     },
     {
       "name": "Disney",
       "type": "Operazione a premio",
       "startDate": "2025-09-28",
-      "endDate": "2025-10-12"
+      "endDate": "2025-10-12",
+      "product": "Fixa",
+      "contractType": "Dual",
+      "conditions": "Disney+ gratis per 1 anno"
     },
     {
       "name": "Halloween",
       "type": "Promo",
       "startDate": "2025-10-30",
-      "endDate": "2025-11-04"
+      "endDate": "2025-11-04",
+      "product": "Fixa",
+      "contractType": "Mono/Dual",
+      "conditions": "Sconto 10% per 1 anno"
     },
     {
       "name": "Friggitrice ad aria",
       "type": "Operazione a premio",
       "startDate": "2025-11-17",
-      "endDate": "2025-11-20"
+      "endDate": "2025-11-20",
+      "product": "Fixa",
+      "contractType": "Dual",
+      "conditions": "Friggitrice ad aria gratis"
     },
     {
       "name": "Energy Days",
       "type": "Promo",
       "startDate": "2025-11-26",
-      "endDate": "2025-12-02"
+      "endDate": "2025-12-02",
+      "product": "Fixa",
+      "contractType": "Mono/Dual",
+      "conditions": "Sconto 20% per 1 anno + sconto online 40€ per commodity"
     },
     {
       "name": "Disney",
       "type": "Operazione a premio",
       "startDate": "2025-12-08",
-      "endDate": "2025-12-11"
+      "endDate": "2025-12-11",
+      "product": "Fixa",
+      "contractType": "Dual",
+      "conditions": "Disney+ gratis per 1 anno"
     },
     {
       "name": "Christmas Days",
       "type": "Promo",
       "startDate": "2025-12-15",
-      "endDate": "2025-12-18"
+      "endDate": "2025-12-18",
+      "product": "Fixa",
+      "contractType": "Mono/Dual",
+      "conditions": "Sconto 10% per 1 anno + sconto online 40€ per commodity"
     }
   ]
 }
-

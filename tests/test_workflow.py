@@ -134,17 +134,17 @@ def test_ga4_module():
     
     try:
         # Importa i nuovi moduli refactored
-        from ga4_extraction.database import GA4Database
-        print("   ✓ ga4_extraction.database importato correttamente")
-        
-        from ga4_extraction.extraction import esegui_giornaliero
-        print("   ✓ ga4_extraction.extraction importato correttamente")
-        
-        from ga4_extraction.factory import GA4ResourceFactory
-        print("   ✓ ga4_extraction.factory importato correttamente")
-        
-        from ga4_extraction.services import GA4DataService
-        print("   ✓ ga4_extraction.services importato correttamente")
+        from backend.ga4_extraction.database import GA4Database
+        print("   ✓ backend.ga4_extraction.database importato correttamente")
+
+        from backend.ga4_extraction.extraction import esegui_giornaliero
+        print("   ✓ backend.ga4_extraction.extraction importato correttamente")
+
+        from backend.ga4_extraction.factory import GA4ResourceFactory
+        print("   ✓ backend.ga4_extraction.factory importato correttamente")
+
+        from backend.ga4_extraction.services import GA4DataService
+        print("   ✓ backend.ga4_extraction.services importato correttamente")
         
         return True
         

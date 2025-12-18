@@ -18,7 +18,7 @@ Usage:
         result = workflow.run_full()
 """
 
-from workflows.result_types import (
+from .result_types import (
     StepStatus,
     StepResult,
     ExtractionResult,
@@ -26,8 +26,8 @@ from workflows.result_types import (
     ApprovalResult,
     WorkflowResult
 )
-from workflows.config import ConfigLoader, ConfigurationError
-from workflows.logging import LoggerFactory
+from .config import ConfigLoader, ConfigurationError
+from .logging import LoggerFactory
 
 __all__ = [
     'StepStatus',

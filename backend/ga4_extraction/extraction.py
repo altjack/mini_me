@@ -2,6 +2,11 @@
 """
 Migrazione da Google Apps Script a Python per estrazione dati GA4
 Traduce tutte le funzioni dello script originale
+
+Features:
+- Rate limiting per rispettare limiti GA4 API (10 rps)
+- Retry automatico con exponential backoff su errori transitori
+- Logging strutturato
 """
 
 import os
@@ -18,8 +23,10 @@ from google.analytics.data_v1beta.types import (
 from google.oauth2.credentials import Credentials
 from google_auth_oauthlib.flow import InstalledAppFlow
 from google.auth.transport.requests import Request
-from ga4_extraction.filters import session_commodity_filter, session_lucegas_filter, funnel_weborder_step1_filter, commodity_type_filter
-from ga4_extraction.config import get_credentials
+from .filters import session_commodity_filter, session_lucegas_filter, funnel_weborder_step1_filter, commodity_type_filter
+from .config import get_credentials
+from .rate_limiter import get_rate_limiter
+from .retry import ga4_retry
 
 # ============================================================================
 # CONFIGURAZIONE
@@ -62,6 +69,34 @@ def get_ga_client() -> BetaAnalyticsDataClient:
             raise Exception("GA4 credentials not configured (GOOGLE_CREDENTIALS_JSON missing or invalid)")
         _ga_client = BetaAnalyticsDataClient(credentials=creds)
     return _ga_client
+
+
+@ga4_retry()
+def _execute_ga4_request(client: BetaAnalyticsDataClient, request: RunReportRequest):
+    """
+    Esegue una richiesta GA4 con rate limiting e retry automatico.
+
+    Questa funzione wrappa tutte le chiamate a client.run_report() per:
+    - Rispettare il rate limit GA4 (10 rps)
+    - Retry automatico su errori transitori (503, 429, timeout)
+    - Logging delle performance
+
+    Args:
+        client: Client GA4 BetaAnalyticsDataClient
+        request: RunReportRequest da eseguire
+
+    Returns:
+        Response dalla GA4 API
+    """
+    # Applica rate limiting prima della chiamata
+    rate_limiter = get_rate_limiter()
+    wait_time = rate_limiter.wait_if_needed()
+
+    if wait_time > 0:
+        logger.debug(f"Rate limited: atteso {wait_time:.3f}s")
+
+    # Esegui la richiesta (il retry è gestito dal decorator @ga4_retry)
+    return client.run_report(request)
 
 
 # ============================================================================
@@ -131,11 +166,11 @@ def sessions(
         dimension_filter=filter_expression if filter_expression else None
     )
 
-    response = client.run_report(request)
+    response = _execute_ga4_request(client, request)
 
     # Processa la response per estrarre il valore
     sessions_count = 0
-    
+
     # Prova prima con totals
     if response.totals and len(response.totals) > 0:
         sessions_count = int(response.totals[0].metric_values[0].value)
@@ -178,7 +213,7 @@ def giornaliero_swi(client: BetaAnalyticsDataClient, date: str) -> int:
         date_ranges=[DateRange(start_date=date, end_date=date)]
     )
 
-    response = client.run_report(request)
+    response = _execute_ga4_request(client, request)
 
     # Processa la response per estrarre il valore
     conversions = 0
@@ -247,7 +282,7 @@ def giornaliero_prodotti(
         date_ranges=[DateRange(start_date=date, end_date=date)]
     )
 
-    response = client.run_report(request)
+    response = _execute_ga4_request(client, request)
 
     if not response.rows:
         logger.warning("Nessun dato restituito per prodotti")
@@ -343,7 +378,7 @@ def giornaliero_startfunnel(
         dimension_filter=funnel_weborder_step1_filter()
     )
 
-    response = client.run_report(request)
+    response = _execute_ga4_request(client, request)
 
     # Processa la response per estrarre il valore
     step1_views = 0.0
@@ -429,7 +464,7 @@ def SWI_per_commodity_type(client: BetaAnalyticsDataClient, date: str) -> pd.Dat
         date_ranges=[DateRange(start_date=date, end_date=date)]
     )
 
-    response = client.run_report(request)
+    response = _execute_ga4_request(client, request)
 
     # Processa response
     commodity_data = {}
@@ -485,7 +520,7 @@ def daily_sessions_channels(client: BetaAnalyticsDataClient, date: str) -> pd.Da
         dimension_filter=session_commodity_filter()
     )
 
-    commodity_response = client.run_report(request_commodity)
+    commodity_response = _execute_ga4_request(client, request_commodity)
 
     # Query per sessioni Luce&Gas per canale
     request_lucegas = RunReportRequest(
@@ -496,7 +531,7 @@ def daily_sessions_channels(client: BetaAnalyticsDataClient, date: str) -> pd.Da
         dimension_filter=session_lucegas_filter()
     )
 
-    lucegas_response = client.run_report(request_lucegas)
+    lucegas_response = _execute_ga4_request(client, request_lucegas)
 
     # Processa response Commodity
     commodity_data = {}
@@ -538,6 +573,155 @@ def daily_sessions_channels(client: BetaAnalyticsDataClient, date: str) -> pd.Da
     print("="*80 + "\n")
     
     return df
+
+
+def daily_sessions_campaigns(client: BetaAnalyticsDataClient, date: str) -> pd.DataFrame:
+    """
+    Estrae le sessioni per campagna (spaccato dettagliato) per una data specifica.
+    
+    Args:
+        client: Client GA4 BetaAnalyticsDataClient
+        date: Data in formato YYYY-MM-DD
+    
+    Returns:
+        DataFrame con colonne:
+        - Campaign: nome della campagna
+        - Commodity_Sessions: sessioni commodity
+        - LuceGas_Sessions: sessioni luce&gas
+    """
+    logger.info(f"Esecuzione: daily_sessions_campaigns per {date}")
+    
+    # Query per sessioni Commodity per campagna
+    request_commodity = RunReportRequest(
+        property=f'properties/{PROPERTY_ID}',
+        dimensions=[Dimension(name="sessionCampaign")],
+        metrics=[Metric(name='sessions')],
+        date_ranges=[DateRange(start_date=date, end_date=date)],
+        dimension_filter=session_commodity_filter()
+    )
+
+    commodity_response = _execute_ga4_request(client, request_commodity)
+
+    # Query per sessioni Luce&Gas per campagna
+    request_lucegas = RunReportRequest(
+        property=f'properties/{PROPERTY_ID}',
+        dimensions=[Dimension(name="sessionCampaign")],
+        metrics=[Metric(name='sessions')],
+        date_ranges=[DateRange(start_date=date, end_date=date)],
+        dimension_filter=session_lucegas_filter()
+    )
+
+    lucegas_response = _execute_ga4_request(client, request_lucegas)
+
+    # Processa response Commodity
+    commodity_data = {}
+    
+    for row in commodity_response.rows:
+        campaign = row.dimension_values[0].value
+        sessions = int(row.metric_values[0].value)
+        commodity_data[campaign] = sessions
+    
+    # Processa response Luce&Gas
+    lucegas_data = {}
+    
+    for row in lucegas_response.rows:
+        campaign = row.dimension_values[0].value
+        sessions = int(row.metric_values[0].value)
+        lucegas_data[campaign] = sessions
+    
+    # Combina i dati in un DataFrame
+    all_campaigns = set(commodity_data.keys()) | set(lucegas_data.keys())
+    
+    data_rows = []
+    for campaign in sorted(all_campaigns):
+        row = {
+            'Campaign': campaign,
+            'Commodity_Sessions': commodity_data.get(campaign, 0),
+            'LuceGas_Sessions': lucegas_data.get(campaign, 0)
+        }
+        data_rows.append(row)
+    
+    df = pd.DataFrame(data_rows)
+    
+    # Output per debug
+    print("\n" + "="*80)
+    print("SESSIONI PER CAMPAGNA")
+    print("="*80)
+    print(f"Date: {date}")
+    print()
+    print(df.to_string(index=False))
+    print("="*80 + "\n")
+    
+    logger.info(f"Campagne estratte: {len(df)}")
+    
+    return df
+
+
+def extract_sessions_campaigns_delayed(target_date_str: str, db=None, skip_validation: bool = False) -> bool:
+    """
+    Estrae sessioni per campagna per una data specifica (D-2).
+    
+    GA4 ha un ritardo di ~48h per i dati per campagna, quindi questa funzione
+    dovrebbe essere eseguita 2 giorni dopo la data target.
+    
+    Args:
+        target_date_str: Data da estrarre (YYYY-MM-DD) - tipicamente D-2
+        db: Istanza GA4Database per salvare direttamente (opzionale)
+        skip_validation: Se True, salta validazione ritardo (default: False)
+    
+    Returns:
+        True se successo, False altrimenti
+    """
+    try:
+        # Validazione data (se non skippata)
+        if not skip_validation:
+            is_valid, message = validate_date_for_channels(target_date_str)
+            if not is_valid:
+                logger.warning(f"⚠️  {message}")
+                logger.warning(f"⚠️  Estrazione campagne NON eseguita per {target_date_str}")
+                print(f"\n⚠️  WARNING: {message}")
+                print(f"⚠️  Estrazione campagne NON eseguita per {target_date_str}")
+                print(f"💡 SUGGERIMENTO: Attendi almeno 48h dalla data target\n")
+                return False
+            else:
+                logger.info(message)
+        
+        logger.info(f"Estrazione sessioni per campagna (delayed) per {target_date_str}")
+        
+        # Autenticazione (lazy)
+        client = get_ga_client()
+        
+        # Estrai sessioni per campagna
+        sessions_df = daily_sessions_campaigns(client, target_date_str)
+        
+        if sessions_df.empty:
+            logger.warning(f"Nessun dato campagna per {target_date_str}")
+            return False
+        
+        # Salva in database se fornito
+        if db:
+            campaigns = []
+            for _, row in sessions_df.iterrows():
+                campaigns.append({
+                    'campaign': row['Campaign'],
+                    'commodity_sessions': int(row['Commodity_Sessions']),
+                    'lucegas_sessions': int(row['LuceGas_Sessions'])
+                })
+            
+            success = db.insert_sessions_by_campaign(target_date_str, campaigns, replace=True)
+            if success:
+                logger.info(f"✓ Sessioni campagna salvate per {target_date_str}: {len(campaigns)} campagne")
+                return True
+            else:
+                logger.error(f"Errore salvataggio sessioni campagna per {target_date_str}")
+                return False
+        
+        return True
+        
+    except Exception as e:
+        logger.error(f"Errore estrazione sessioni campagna per {target_date_str}: {e}", exc_info=True)
+        return False
+
 
 # ============================================================================
 # FUNZIONE PRINCIPALE

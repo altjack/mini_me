@@ -8,21 +8,18 @@ import os
 import sys
 
 
-# Aggiungi il percorso corrente al path per gli import
-sys.path.append(os.path.dirname(__file__))
-
 load_dotenv()
 
 # Import dei componenti necessari
-from prompt import SYSTEM_PROMPT
-from tools import (
+from backend.agent.prompt import SYSTEM_PROMPT
+from backend.agent.tools import (
     get_daily_report,
     get_weekend_report,
     compare_periods,
     get_active_promos,
     compare_promo_periods
 )
-from examples import load_examples, sample_examples, format_examples_for_prompt
+from backend.agent.examples import load_examples, sample_examples, format_examples_for_prompt
 # from load_memory import get_memory_context  # DEPRECATED: usa examples invece
 
 def client_anthropic(model):

@@ -309,6 +309,9 @@ function DashboardComponent() {
   // Memoized channels array
   const channels = useMemo(() => sessionsMeta?.channels || [], [sessionsMeta]);
 
+  // Memoized campaigns array
+  const campaigns = useMemo(() => sessionsMeta?.campaigns || [], [sessionsMeta]);
+
   // Promozioni attive nel range visualizzato
   const activePromos = useMemo(() => {
     return getActivePromos(startDate, endDate);
@@ -490,16 +493,20 @@ function DashboardComponent() {
           dataKey="commodity"
           totals={sessionsData.totals}
           byChannel={sessionsData.by_channel}
+          byCampaign={sessionsData.by_campaign || []}
           loading={loadingSessions}
           channels={channels}
+          campaigns={campaigns}
         />
         <SessionsChart
           title="Sessioni Luce & Gas"
           dataKey="lucegas"
           totals={sessionsData.totals}
           byChannel={sessionsData.by_channel}
+          byCampaign={sessionsData.by_campaign || []}
           loading={loadingSessions}
           channels={channels}
+          campaigns={campaigns}
         />
       </div>
 
