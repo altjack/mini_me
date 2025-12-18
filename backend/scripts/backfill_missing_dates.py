@@ -10,15 +10,20 @@ Questo script:
 Usage:
     # Recupera tutte le date mancanti negli ultimi 60 giorni
     uv run backfill_missing_dates.py
-    
+
     # Recupera date mancanti in un range specifico
     uv run backfill_missing_dates.py --start-date 2025-11-01 --end-date 2025-11-10
-    
+
     # Recupera una singola data
     uv run backfill_missing_dates.py --date 2025-11-05
-    
+
     # Recupera anche sessioni per canale (D-2)
     uv run backfill_missing_dates.py --include-channels
+
+    # Backfill incrementale per nuove variabili (usa orizzonte DB esistente)
+    uv run backfill_missing_dates.py --incremental channels
+    uv run backfill_missing_dates.py --incremental campaigns
+    uv run backfill_missing_dates.py --incremental all --dry-run
 """
 
 import sys
@@ -213,6 +218,158 @@ def backfill_single_date(
     return True
 
 
+def run_incremental_backfill(args) -> int:
+    """
+    Esegue backfill incrementale per nuove variabili.
+
+    Usa l'orizzonte temporale esistente nel DB per backfillare
+    solo le date che hanno metriche base ma mancano dati per l'extractor.
+
+    Args:
+        args: Argomenti CLI parsati
+
+    Returns:
+        Exit code (0 = successo, 1 = errore)
+    """
+    from backend.ga4_extraction.extractors.registry import list_extractors
+    from backend.ga4_extraction.extractors.backfill import (
+        incremental_backfill,
+        backfill_all_extractors,
+        get_db_date_range
+    )
+
+    extractor_name = args.incremental.lower()
+    dry_run = args.dry_run
+
+    # Setup database
+    logger.info(f"Connessione database: {args.db_path}")
+    db = GA4Database(args.db_path)
+
+    try:
+        # Mostra orizzonte temporale DB
+        db_min, db_max = get_db_date_range(db)
+        if db_min is None:
+            print("❌ Database vuoto. Esegui prima un backfill completo delle metriche base.")
+            return 1
+
+        print(f"📅 Orizzonte temporale DB: {db_min} → {db_max}")
+        print()
+
+        # Backfill all extractors
+        if extractor_name == 'all':
+            print("🔄 Backfill incrementale per TUTTI gli extractors")
+            print()
+
+            if dry_run:
+                print("🔍 [DRY RUN] Analisi date mancanti...\n")
+
+            result = backfill_all_extractors(db=db, dry_run=dry_run)
+
+            print()
+            print("=" * 80)
+            if dry_run:
+                print("  🔍 RISULTATO DRY RUN")
+            else:
+                print("  ✅ BACKFILL COMPLETATO")
+            print("=" * 80)
+            print()
+
+            for ext_name, ext_result in result.get('extractors', {}).items():
+                if ext_result.get('error'):
+                    print(f"❌ {ext_name}: {ext_result['error']}")
+                elif dry_run:
+                    total = ext_result.get('total_missing', 0)
+                    print(f"📊 {ext_name}: {total} date da processare")
+                    if total > 0 and 'dates_to_process' in ext_result:
+                        dates = ext_result['dates_to_process']
+                        preview = dates[:5]
+                        print(f"   Prime date: {', '.join(preview)}")
+                        if len(dates) > 5:
+                            print(f"   ... e altre {len(dates) - 5}")
+                else:
+                    print(f"✓ {ext_name}: {ext_result.get('processed', 0)} processate, "
+                          f"{ext_result.get('failed', 0)} fallite, "
+                          f"{ext_result.get('skipped', 0)} skippate")
+
+            print()
+            print(f"📊 Totali: {result.get('total_processed', 0)} processate, "
+                  f"{result.get('total_failed', 0)} fallite")
+
+            return 0 if result.get('success', False) else 1
+
+        # Backfill singolo extractor
+        else:
+            # Valida extractor
+            available = [e['name'] for e in list_extractors()]
+            if extractor_name not in available:
+                print(f"❌ Extractor '{extractor_name}' non trovato.")
+                print(f"   Disponibili: {', '.join(available)}")
+                print(f"   Usa --list-extractors per dettagli")
+                return 1
+
+            print(f"🔄 Backfill incrementale per '{extractor_name}'")
+            print()
+
+            if dry_run:
+                print("🔍 [DRY RUN] Analisi date mancanti...\n")
+
+            # Usa start/end date se specificati, altrimenti usa orizzonte DB
+            start_date = args.start_date if hasattr(args, 'start_date') else None
+            end_date = args.end_date if hasattr(args, 'end_date') else None
+
+            result = incremental_backfill(
+                extractor_name=extractor_name,
+                db=db,
+                start_date=start_date,
+                end_date=end_date,
+                dry_run=dry_run
+            )
+
+            print()
+            print("=" * 80)
+            if dry_run:
+                print("  🔍 RISULTATO DRY RUN")
+            else:
+                print("  ✅ BACKFILL COMPLETATO")
+            print("=" * 80)
+            print()
+
+            if result.get('error'):
+                print(f"❌ Errore: {result['error']}")
+                return 1
+
+            date_range = result.get('date_range', {})
+            print(f"📅 Range analizzato: {date_range.get('start')} → {date_range.get('end')}")
+            print(f"📊 Date mancanti trovate: {result.get('total_missing', 0)}")
+
+            if dry_run:
+                if result.get('total_missing', 0) > 0:
+                    dates = result.get('dates_to_process', [])
+                    print(f"\n📋 Date da processare:")
+                    for d in dates[:10]:
+                        print(f"   • {d}")
+                    if len(dates) > 10:
+                        print(f"   ... e altre {len(dates) - 10}")
+                print(f"\n💡 Rimuovi --dry-run per eseguire il backfill")
+            else:
+                print(f"✓ Processate: {result.get('processed', 0)}")
+                print(f"✗ Fallite: {result.get('failed', 0)}")
+                print(f"⏭ Skippate: {result.get('skipped', 0)}")
+
+                # Mostra dettagli errori
+                details = result.get('details', [])
+                errors = [d for d in details if not d.get('success') and not d.get('skipped')]
+                if errors:
+                    print(f"\n⚠️  Dettagli errori:")
+                    for err in errors[:5]:
+                        print(f"   • {err['date']}: {err.get('error', 'Errore sconosciuto')}")
+
+            return 0 if result.get('success', False) else 1
+
+    finally:
+        db.close()
+
+
 def main():
     """
     Funzione principale per backfill date mancanti.
@@ -256,15 +413,48 @@ def main():
         default='data/ga4_data.db',
         help='Path database SQLite (default: data/ga4_data.db)'
     )
-    
+
+    # Opzioni backfill incrementale (nuove variabili)
+    parser.add_argument(
+        '--incremental',
+        metavar='EXTRACTOR',
+        help='Backfill incrementale per extractor specifico (channels, campaigns, all). '
+             'Usa orizzonte temporale esistente nel DB (min_date → max_date - delay)'
+    )
+    parser.add_argument(
+        '--dry-run',
+        action='store_true',
+        help='Mostra cosa verrebbe fatto senza eseguire (solo con --incremental)'
+    )
+    parser.add_argument(
+        '--list-extractors',
+        action='store_true',
+        help='Mostra lista extractors disponibili'
+    )
+
     args = parser.parse_args()
-    
+
     # Header
     print("=" * 80)
     print("  📊 BACKFILL DATE MANCANTI - GA4 Data Recovery")
     print("=" * 80)
     print()
-    
+
+    # Modalità: lista extractors
+    if args.list_extractors:
+        from backend.ga4_extraction.extractors.registry import list_extractors
+        extractors = list_extractors()
+        print("📋 Extractors disponibili per backfill incrementale:\n")
+        for ext in extractors:
+            print(f"   • {ext['name']}: {ext['description']}")
+            print(f"     Tabella: {ext['table_name']}, Ritardo GA4: D-{ext['ga4_delay_days']}")
+            print()
+        return 0
+
+    # Modalità: backfill incrementale
+    if args.incremental:
+        return run_incremental_backfill(args)
+
     try:
         # Setup database
         logger.info(f"Connessione database: {args.db_path}")

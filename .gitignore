@@ -18,6 +18,9 @@ data/*.db
 data/ga4_data.db
 data/backups/
 
+# Database Migrations (kept in repo for production deployments)
+# backend/migrations/versions/*.sql
+
 # Log files
 *.log
 logs/
