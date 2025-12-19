@@ -104,22 +104,41 @@ class GA4ResourceFactory:
         
         Returns:
             Istanza GA4RedisCache o None se non disponibile
+        
+        Environment Variables (override config.yaml):
+            REDIS_HOST: Host Redis (es. my-redis.upstash.io)
+            REDIS_PORT: Porta Redis (default: 6379)
+            REDIS_TOKEN: Token/Password Redis (per Upstash/Redis Cloud)
+            REDIS_DB: Database number (default: 1)
+            REDIS_SSL: Se "true", usa connessione SSL (richiesto da Upstash)
         """
+        import os
+        
         redis_config = db_config.get('redis', {})
         
         if not redis_config:
             logger.info("Configurazione Redis non trovata, cache disabilitata")
             return None
         
+        # Priorità: env vars > config.yaml
+        # Accetta sia REDIS_TOKEN (Upstash) che REDIS_PASSWORD (standard)
+        redis_host = os.getenv('REDIS_HOST') or redis_config.get('host', 'localhost')
+        redis_port = int(os.getenv('REDIS_PORT') or redis_config.get('port', 6379))
+        redis_password = os.getenv('REDIS_TOKEN') or os.getenv('REDIS_PASSWORD') or redis_config.get('password')
+        redis_db = int(os.getenv('REDIS_DB') or redis_config.get('db', 1))
+        redis_ssl = os.getenv('REDIS_SSL', '').lower() == 'true' or redis_config.get('ssl', False)
+        
         try:
             cache = GA4RedisCache(
-                host=redis_config.get('host', 'localhost'),
-                port=redis_config.get('port', 6379),
-                db=redis_config.get('db', 1),
+                host=redis_host,
+                port=redis_port,
+                db=redis_db,
+                password=redis_password,
+                ssl=redis_ssl,
                 key_prefix=redis_config.get('key_prefix', 'ga4:metrics:'),
                 ttl_days=redis_config.get('ttl_days', 14)
             )
-            logger.info("✓ Redis cache connessa")
+            logger.info(f"✓ Redis cache connessa ({redis_host}:{redis_port})")
             return cache
             
         except Exception as e:

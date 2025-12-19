@@ -158,6 +158,13 @@ def _create_connections_legacy() -> Tuple[GA4Database, Optional[GA4RedisCache]]:
     Create connections using legacy method (for backward compatibility).
     
     This is called when no ToolSession is active.
+    
+    Environment Variables (override config.yaml):
+        REDIS_HOST: Host Redis (es. my-redis.upstash.io)
+        REDIS_PORT: Porta Redis (default: 6379)
+        REDIS_TOKEN: Token/Password Redis (per Upstash/Redis Cloud)
+        REDIS_DB: Database number (default: 1)
+        REDIS_SSL: Se "true", usa connessione SSL
     """
     # Path al config.yaml nella root del progetto
     # Da backend/agent/session.py -> ../../config.yaml
@@ -173,18 +180,29 @@ def _create_connections_legacy() -> Tuple[GA4Database, Optional[GA4RedisCache]]:
     db = GA4Database(db_path)
     
     # Redis (optional)
+    cache = None
     try:
         redis_config = db_config.get('redis', {})
+        
+        # Priorità: env vars > config.yaml
+        # Accetta sia REDIS_TOKEN (Upstash) che REDIS_PASSWORD (standard)
+        redis_host = os.getenv('REDIS_HOST') or redis_config.get('host', 'localhost')
+        redis_port = int(os.getenv('REDIS_PORT') or redis_config.get('port', 6379))
+        redis_password = os.getenv('REDIS_TOKEN') or os.getenv('REDIS_PASSWORD') or redis_config.get('password')
+        redis_db = int(os.getenv('REDIS_DB') or redis_config.get('db', 1))
+        redis_ssl = os.getenv('REDIS_SSL', '').lower() == 'true' or redis_config.get('ssl', False)
+        
         cache = GA4RedisCache(
-            host=redis_config.get('host', 'localhost'),
-            port=redis_config.get('port', 6379),
-            db=redis_config.get('db', 1),
+            host=redis_host,
+            port=redis_port,
+            db=redis_db,
+            password=redis_password,
+            ssl=redis_ssl,
             key_prefix=redis_config.get('key_prefix', 'ga4:metrics:'),
             ttl_days=redis_config.get('ttl_days', 21)
         )
     except Exception as e:
         logger.warning(f"Redis non disponibile: {e}")
-        cache = None
     
     return db, cache
 

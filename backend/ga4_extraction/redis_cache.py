@@ -24,7 +24,9 @@ class GA4RedisCache:
         port: int = 6379,
         db: int = 1,
         key_prefix: str = "ga4:metrics:",
-        ttl_days: int = 14
+        ttl_days: int = 14,
+        password: str = None,
+        ssl: bool = False
     ):
         """
         Inizializza connessione Redis.
@@ -35,6 +37,8 @@ class GA4RedisCache:
             db: Database Redis (default: 1, separato da memoria agente)
             key_prefix: Prefisso chiavi (default: ga4:metrics:)
             ttl_days: TTL in giorni (default: 14)
+            password: Password Redis (opzionale, richiesto per Upstash/Redis Cloud)
+            ssl: Usa connessione SSL/TLS (default: False, richiesto per Upstash)
         """
         self.host = host
         self.port = port
@@ -47,11 +51,13 @@ class GA4RedisCache:
                 host=host,
                 port=port,
                 db=db,
+                password=password,
+                ssl=ssl,
                 decode_responses=True  # Auto-decode bytes to strings
             )
             # Test connessione
             self.client.ping()
-            logger.info(f"Redis connesso: {host}:{port} (db={db})")
+            logger.info(f"Redis connesso: {host}:{port} (db={db}, ssl={ssl})")
         except redis.ConnectionError as e:
             logger.error(f"Errore connessione Redis: {e}")
             raise
