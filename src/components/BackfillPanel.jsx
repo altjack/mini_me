@@ -1,14 +1,31 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import toast from 'react-hot-toast';
-import { api } from '../services/api';
+import { useBackfill } from '../context/BackfillContext';
 import { Database, Calendar, Loader2, CheckCircle, AlertCircle } from 'lucide-react';
 import { format, subDays } from 'date-fns';
 
 export const BackfillPanel = ({ onActionComplete }) => {
+  // Local state for form inputs
   const [startDate, setStartDate] = useState(format(subDays(new Date(), 7), 'yyyy-MM-dd'));
   const [endDate, setEndDate] = useState(format(subDays(new Date(), 1), 'yyyy-MM-dd'));
-  const [loading, setLoading] = useState(false);
-  const [result, setResult] = useState(null);
+
+  // Global backfill state from context
+  const { isRunning, result, error, params, startBackfill, clearResult } = useBackfill();
+
+  // Show toast when backfill completes (even if user navigated away and came back)
+  useEffect(() => {
+    // Only show toast if there's a new result that we haven't shown yet
+    if (result && !isRunning) {
+      if (result.success) {
+        const successCount = result.data?.data?.successful || result.data?.completed || 0;
+        toast.success(`Backfill completed! ${successCount} dates processed successfully.`, {
+          duration: 5000,
+        });
+      } else if (result.error) {
+        toast.error(result.error);
+      }
+    }
+  }, [result, isRunning]);
 
   // Validate date format and range
   const isValidDate = (dateString) => {
@@ -42,36 +59,30 @@ export const BackfillPanel = ({ onActionComplete }) => {
       return;
     }
 
-    setLoading(true);
-    setResult(null);
+    // Clear previous result before starting
+    clearResult();
 
     const toastId = toast.loading('Backfilling data...');
-    
-    try {
-      const res = await api.backfill(startDate, endDate);
-      setResult({
-        success: true,
-        data: res.data
-      });
-      
-      if (onActionComplete) onActionComplete();
-      
-      const successCount = res.data.data?.successful || 0;
-      toast.success(`Backfill completed! ${successCount} dates processed successfully.`, { 
+
+    const { success, data, error: backfillError } = await startBackfill(
+      startDate,
+      endDate,
+      onActionComplete
+    );
+
+    if (success) {
+      const successCount = data?.data?.successful || data?.completed || 0;
+      toast.success(`Backfill completed! ${successCount} dates processed successfully.`, {
         id: toastId,
-        duration: 5000 
+        duration: 5000,
       });
-    } catch (err) {
-      const errorMsg = err.response?.data?.error || 'Backfill failed';
-      setResult({
-        success: false,
-        error: errorMsg
-      });
-      toast.error(errorMsg, { id: toastId });
-    } finally {
-      setLoading(false);
+    } else {
+      toast.error(backfillError || 'Backfill failed', { id: toastId });
     }
   };
+
+  // Determine what result to show (could be from current session or from context)
+  const displayResult = result;
 
   return (
     <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
@@ -79,6 +90,19 @@ export const BackfillPanel = ({ onActionComplete }) => {
         <Database className="text-blue-500 mr-3" size={24} />
         <h2 className="text-xl font-semibold text-gray-800">Data Backfill</h2>
       </div>
+
+      {/* Show running indicator if backfill is in progress */}
+      {isRunning && params && (
+        <div className="mb-4 p-3 bg-blue-50 text-blue-700 rounded-lg flex items-center">
+          <Loader2 className="animate-spin mr-2" size={18} />
+          <div>
+            <p className="font-medium">Backfill in progress...</p>
+            <p className="text-sm">
+              Processing dates from {params.startDate} to {params.endDate}
+            </p>
+          </div>
+        </div>
+      )}
 
       <form onSubmit={handleBackfill} className="space-y-4">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -90,7 +114,8 @@ export const BackfillPanel = ({ onActionComplete }) => {
                 type="date"
                 value={startDate}
                 onChange={(e) => setStartDate(e.target.value)}
-                className="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"
+                disabled={isRunning}
+                className="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all disabled:bg-gray-50 disabled:text-gray-400"
                 required
               />
             </div>
@@ -103,7 +128,8 @@ export const BackfillPanel = ({ onActionComplete }) => {
                 type="date"
                 value={endDate}
                 onChange={(e) => setEndDate(e.target.value)}
-                className="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"
+                disabled={isRunning}
+                className="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all disabled:bg-gray-50 disabled:text-gray-400"
                 required
               />
             </div>
@@ -112,10 +138,10 @@ export const BackfillPanel = ({ onActionComplete }) => {
 
         <button
           type="submit"
-          disabled={loading}
-          className="w-full bg-gray-900 hover:bg-gray-800 text-white font-medium py-2.5 rounded-lg transition-colors flex justify-center items-center"
+          disabled={isRunning}
+          className="w-full bg-gray-900 hover:bg-gray-800 text-white font-medium py-2.5 rounded-lg transition-colors flex justify-center items-center disabled:opacity-50 disabled:cursor-not-allowed"
         >
-          {loading ? (
+          {isRunning ? (
             <>
               <Loader2 className="animate-spin mr-2" size={18} />
               Processing Backfill...
@@ -126,23 +152,48 @@ export const BackfillPanel = ({ onActionComplete }) => {
         </button>
       </form>
 
-      {result && (
-        <div className={`mt-6 p-4 rounded-lg ${result.success ? 'bg-green-50 text-green-800' : 'bg-red-50 text-red-800'}`}>
+      {displayResult && !isRunning && (
+        <div
+          className={`mt-6 p-4 rounded-lg ${
+            displayResult.success ? 'bg-green-50 text-green-800' : 'bg-red-50 text-red-800'
+          }`}
+        >
           <div className="flex items-start">
-            {result.success ? <CheckCircle className="mr-2 mt-0.5" size={18} /> : <AlertCircle className="mr-2 mt-0.5" size={18} />}
-            <div>
-              <p className="font-medium">{result.success ? 'Backfill Completed' : 'Error'}</p>
-              {result.success && (
+            {displayResult.success ? (
+              <CheckCircle className="mr-2 mt-0.5" size={18} />
+            ) : (
+              <AlertCircle className="mr-2 mt-0.5" size={18} />
+            )}
+            <div className="flex-1">
+              <p className="font-medium">
+                {displayResult.success ? 'Backfill Completed' : 'Error'}
+              </p>
+              {displayResult.success && displayResult.data && (
                 <p className="text-sm mt-1">
-                  Successfully processed {result.data.completed} of {result.data.total} days.
+                  Successfully processed{' '}
+                  {displayResult.data.completed || displayResult.data.data?.successful || 0} of{' '}
+                  {displayResult.data.total || displayResult.data.data?.total || 0} days.
                 </p>
               )}
-              {!result.success && <p className="text-sm mt-1">{result.error}</p>}
+              {!displayResult.success && (
+                <p className="text-sm mt-1">{displayResult.error || error}</p>
+              )}
+              {displayResult.completedAt && (
+                <p className="text-xs mt-2 opacity-70">
+                  Completed at {new Date(displayResult.completedAt).toLocaleTimeString()}
+                </p>
+              )}
             </div>
+            <button
+              onClick={clearResult}
+              className="text-sm underline hover:no-underline ml-2"
+              aria-label="Dismiss result"
+            >
+              Dismiss
+            </button>
           </div>
         </div>
       )}
     </div>
   );
 };
-

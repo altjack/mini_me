@@ -45,7 +45,7 @@ const PROMO_COLORS = {
 };
 
 // Colore per linee campagne commerciali
-const CAMPAIGN_COLOR = '#dc2626';  // red-600
+const CAMPAIGN_COLOR = '#000000';  // black
 
 /**
  * Filtra le promozioni attive in un dato range di date
@@ -530,7 +530,6 @@ function DashboardComponent() {
                   x={campaign.displayDate}
                   stroke={CAMPAIGN_COLOR}
                   strokeWidth={2}
-                  strokeDasharray="4 2"
                   label={{
                     value: campaign.name,
                     position: 'top',

@@ -1,10 +1,11 @@
-import React, { useState, useEffect, useMemo, useCallback, memo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, memo, useRef } from 'react';
 import { Card, Title, Text } from './ui/Card';
 import toast from 'react-hot-toast';
 import { format, subDays, parseISO, differenceInDays } from 'date-fns';
 import { it } from 'date-fns/locale';
 import { api } from '../services/api';
 import { logError } from '../utils/logger';
+import { usePromo } from '../context/PromoContext';
 import promoCalendar from '../data/promoCalendar.json';
 import { Calendar, RefreshCw, TrendingUp, TrendingDown, Gift, ArrowRight } from 'lucide-react';
 
@@ -188,30 +189,45 @@ PromoSelector.displayName = 'PromoSelector';
 // =============================================================================
 
 function PromoDashboardComponent() {
-  // State: Selected promo
-  const [selectedPromo, setSelectedPromo] = useState(null);
-  
-  // State: Comparison dates
-  const [compStartDate, setCompStartDate] = useState('');
-  const [compEndDate, setCompEndDate] = useState('');
-  
-  // State: Data
+  // Global state from context (persists between page changes)
+  const {
+    selectedPromo,
+    setSelectedPromo,
+    compStartDate,
+    setCompStartDate,
+    compEndDate,
+    setCompEndDate,
+  } = usePromo();
+
+  // Local state: Data (fetched on mount/change)
   const [promoData, setPromoData] = useState(null);
   const [comparisonData, setComparisonData] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
-  // Update comparison dates when promo changes
+  // Track previous promo to detect actual changes
+  const prevPromoRef = useRef(selectedPromo);
+
+  // Update comparison dates only when promo actually changes (not on mount with existing selection)
   useEffect(() => {
-    if (selectedPromo) {
+    const prevPromo = prevPromoRef.current;
+    const promoChanged = selectedPromo?.name !== prevPromo?.name ||
+                         selectedPromo?.startDate !== prevPromo?.startDate;
+
+    if (selectedPromo && promoChanged) {
+      // Promo changed - calculate default comparison dates
       const defaults = getDefaultComparisonDates(selectedPromo.startDate, selectedPromo.endDate);
       setCompStartDate(defaults.start || '');
       setCompEndDate(defaults.end || '');
-    } else {
+    } else if (!selectedPromo) {
+      // Promo deselected - clear dates
       setCompStartDate('');
       setCompEndDate('');
     }
-  }, [selectedPromo]);
+    // If promo exists and didn't change, keep existing dates (user edited them)
+
+    prevPromoRef.current = selectedPromo;
+  }, [selectedPromo, setCompStartDate, setCompEndDate]);
 
   // Fetch data when promo or comparison dates change
   const fetchData = useCallback(async () => {
