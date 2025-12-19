@@ -79,6 +79,8 @@ ALLOWED_ORIGINS = [
     'http://localhost:5174',
     'http://127.0.0.1:5173',
     'http://127.0.0.1:5174',
+    # Vercel production e preview domains
+    'https://mini-me-ashy.vercel.app/',
 ]
 
 # Aggiungi origini da variabile ambiente (per Render/produzione)
@@ -86,9 +88,9 @@ ALLOWED_ORIGINS = [
 if os.getenv('CORS_ORIGINS'):
     ALLOWED_ORIGINS.extend(os.getenv('CORS_ORIGINS').split(','))
 
-# Supporto dinamico per domini Vercel (preview e production)
-# I domini Vercel seguono pattern: https://{project}-{hash}.vercel.app
-VERCEL_DOMAIN_PATTERN = '.vercel.app'
+# Regex per accettare tutti i domini Vercel del progetto
+import re
+VERCEL_ORIGIN_REGEX = re.compile(r'^https://mini(-[a-z0-9]+)*\.vercel\.app$')
 
 
 # =============================================================================
@@ -110,19 +112,9 @@ def create_app(config: Optional[dict] = None) -> Flask:
     app = Flask(__name__)
     
     # CORS con whitelist origini + supporto dinamico Vercel
-    def cors_origin_callback(origin):
-        """Callback per validare origini CORS dinamicamente."""
-        if not origin:
-            return None
-        # Whitelist esplicita
-        if origin in ALLOWED_ORIGINS:
-            return origin
-        # Domini Vercel (*.vercel.app)
-        if origin.endswith(VERCEL_DOMAIN_PATTERN):
-            return origin
-        return None
-    
-    CORS(app, origins=cors_origin_callback, supports_credentials=True)
+    # Flask-CORS supporta regex, quindi usiamo un pattern per i domini Vercel
+    cors_origins = ALLOWED_ORIGINS + [VERCEL_ORIGIN_REGEX]
+    CORS(app, origins=cors_origins, supports_credentials=True)
     
     # Carica configurazione
     if config is None:
