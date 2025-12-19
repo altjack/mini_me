@@ -86,6 +86,10 @@ ALLOWED_ORIGINS = [
 if os.getenv('CORS_ORIGINS'):
     ALLOWED_ORIGINS.extend(os.getenv('CORS_ORIGINS').split(','))
 
+# Supporto dinamico per domini Vercel (preview e production)
+# I domini Vercel seguono pattern: https://{project}-{hash}.vercel.app
+VERCEL_DOMAIN_PATTERN = '.vercel.app'
+
 
 # =============================================================================
 # APP FACTORY
@@ -105,8 +109,20 @@ def create_app(config: Optional[dict] = None) -> Flask:
     """
     app = Flask(__name__)
     
-    # CORS con whitelist origini (SECURITY FIX)
-    CORS(app, origins=ALLOWED_ORIGINS, supports_credentials=True)
+    # CORS con whitelist origini + supporto dinamico Vercel
+    def cors_origin_callback(origin):
+        """Callback per validare origini CORS dinamicamente."""
+        if not origin:
+            return None
+        # Whitelist esplicita
+        if origin in ALLOWED_ORIGINS:
+            return origin
+        # Domini Vercel (*.vercel.app)
+        if origin.endswith(VERCEL_DOMAIN_PATTERN):
+            return origin
+        return None
+    
+    CORS(app, origins=cors_origin_callback, supports_credentials=True)
     
     # Carica configurazione
     if config is None:
