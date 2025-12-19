@@ -4,9 +4,11 @@ import axios from 'axios';
 // CONFIGURAZIONE API
 // =============================================================================
 
-// In produzione usa URL relativo, in locale usa porta 5001
+// In locale usa porta 5001, in produzione usa Cloudflare Tunnel
 const API_URL = import.meta.env.VITE_API_URL || 
-  (window.location.hostname === 'localhost' ? 'http://localhost:5001/api' : '/api');
+  (window.location.hostname === 'localhost' 
+    ? 'http://localhost:5001/api' 
+    : 'https://api.bluetunnel.org/api');
 
 // LocalStorage keys for cross-domain token storage
 const TOKEN_KEY = 'auth_token';
