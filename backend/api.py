@@ -79,8 +79,8 @@ ALLOWED_ORIGINS = [
     'http://localhost:5174',
     'http://127.0.0.1:5173',
     'http://127.0.0.1:5174',
-    # Vercel production e preview domains
-    'https://mini-me-ashy.vercel.app/',
+    # Vercel production domain
+    'https://mini-me-ashy.vercel.app',
 ]
 
 # Aggiungi origini da variabile ambiente (per Render/produzione)
@@ -88,9 +88,10 @@ ALLOWED_ORIGINS = [
 if os.getenv('CORS_ORIGINS'):
     ALLOWED_ORIGINS.extend(os.getenv('CORS_ORIGINS').split(','))
 
-# Regex per accettare tutti i domini Vercel del progetto
+# Regex per accettare TUTTI i domini Vercel preview del progetto
+# Pattern: https://mini-{hash}-{username}.vercel.app
 import re
-VERCEL_ORIGIN_REGEX = re.compile(r'^https://mini(-[a-z0-9]+)*\.vercel\.app$')
+VERCEL_ORIGIN_REGEX = re.compile(r'^https://mini[a-z0-9-]*\.vercel\.app$')
 
 
 # =============================================================================
