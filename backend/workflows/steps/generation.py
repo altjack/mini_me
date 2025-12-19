@@ -45,10 +45,6 @@ class GenerationStep:
         Returns:
             GenerationResult con esito operazione
         """
-        # #region agent log
-        import json as _json; _log_path = "/Users/giacomomauri/Desktop/Automation/daily_report/.cursor/debug.log"
-        def _debug_log(loc, msg, data, hyp): open(_log_path, "a").write(_json.dumps({"location": loc, "message": msg, "data": data, "hypothesisId": hyp, "timestamp": __import__("time").time()}) + "\n")
-        # #endregion
         try:
             self.logger.info("Inizio generazione email con AI Agent...")
             
@@ -62,9 +58,6 @@ class GenerationStep:
             # Crea agent
             model = self.config['agent']['model']
             verbose = self.config['agent'].get('verbose', True)
-            # #region agent log
-            _debug_log("generation.py:execute", "Creating agent", {"model": model, "verbose": verbose}, "C")
-            # #endregion
             agent = create_agent_with_memory(model=model, verbose=verbose)
             
             # Esegui task con ToolSession per connessioni condivise
@@ -74,24 +67,12 @@ class GenerationStep:
             
             with ToolSession(self.config) as session:
                 self.logger.debug("ToolSession avviata per esecuzione agent")
-                # #region agent log
-                _debug_log("generation.py:execute", "Before agent.run()", {"task_prompt_len": len(task_prompt)}, "B")
-                # #endregion
                 result = agent.run(task_prompt)
-                # #region agent log
-                _debug_log("generation.py:execute", "After agent.run()", {"result_type": type(result).__name__, "result_repr": repr(result)[:500]}, "A")
-                # #endregion
             
             # Estrai contenuto
             content = self._extract_content(result)
-            # #region agent log
-            _debug_log("generation.py:execute", "After _extract_content()", {"content_len": len(content) if content else 0, "content_preview": (content[:200] if content else "EMPTY")}, "A")
-            # #endregion
             
             if not content or len(content) < 100:
-                # #region agent log
-                _debug_log("generation.py:execute", "FAIL: content too short", {"content_len": len(content) if content else 0, "full_content": content}, "A")
-                # #endregion
                 return GenerationResult(
                     status=StepStatus.FAILED,
                     message="Contenuto generato troppo corto",
