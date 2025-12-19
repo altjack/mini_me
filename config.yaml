@@ -82,45 +82,35 @@ execution:
   # Prompt task per l'agente
   # Questo è il prompt iniziale che viene inviato all'agente quando eseguito
   task_prompt: >
-    GENERA L'EMAIL COMPLETA DEL REPORT GIORNALIERO GA4.
+    SCRIVI ORA l'email del report giornaliero GA4. Dopo aver chiamato i tool necessari, 
+    la tua risposta finale DEVE CONTENERE SOLO IL TESTO COMPLETO DELL'EMAIL (minimo 500 parole).
     
-    ISTRUZIONI:
+    NON rispondere MAI con frasi come "Procedo a...", "Ecco l'email...", "Ora scrivo...".
+    La tua risposta finale deve INIZIARE DIRETTAMENTE con il contenuto dell'email.
     
-    1. ACQUISISCI I DATI (OBBLIGATORIO IN QUESTO ORDINE):
-       a) Usa get_daily_report() per ottenere il report completo della data più recente (default: ieri)
-       b) **USA get_active_promos()** per verificare promozioni attive (OBBLIGATORIO)
-       c) Se get_active_promos() suggerisce un confronto con promo precedente, USA compare_promo_periods()
-
-    2. ANALISI CONTESTUALE CON PROMOZIONI:
-       - Se ci sono promozioni attive, CORRELA le performance con la promo
-       - Se c'è confronto con promo precedente, ANALIZZA le differenze di efficacia
-       - Distingui "PROMO" (campagne temporanee) da "PRODOTTO" (condizioni standard)
-       - Spiega variazioni di performance in relazione alle promozioni
-
-    3. SCRIVI L'EMAIL COMPLETA usando come riferimento PRIMARIO gli esempi storici che hai nel system prompt:
-       - EMULA lo stile discorsivo e analitico degli esempi
-       - REPLICA la struttura narrativa (non un template rigido, ma il "flusso" degli esempi)
-       - USA espressioni e formule simili a quelle che vedi negli esempi
-       - MANTIENI il tono professionale ma accessibile degli esempi
-       - EVIDENZIA le metriche chiave come fatto negli esempi (SWI, prodotti, sessioni, CR)
+    WORKFLOW (esegui tutto in questo turno):
     
-    4. CONTENUTO OBBLIGATORIO:
-       - **Promozioni attive (se presenti)** con impatto su performance
-       - Performance SWI con variazioni percentuali e confronti temporali
-       - Dettaglio prodotti (Fixa, Pernoi, Trend, Sempre) con percentuali
-       - Sessioni commodity e Luce&Gas con trend
-       - Conversion Rates (CR commodity, CR Luce&Gas, CR canalizzazione)
-       - **Confronto promo-vs-promo (se disponibile)** con analisi efficacia
-       - Analisi contestuale e insights (come negli esempi storici)
-
-    5. REQUISITI TECNICI:
-       - USA SOLO dati REALI dai tool (NO placeholder, NO invenzioni)
-       - Scrivi l'email COMPLETA immediatamente dopo aver ottenuto i dati
-       - NON limitarti a dire "procederò a scrivere" - SCRIVI direttamente
-       - Formato markdown, pronta per essere salvata
+    1. Chiama get_daily_report() per ottenere metriche e confronti
+    2. Chiama get_active_promos() per verificare promozioni attive
+    3. Se suggerito, chiama compare_promo_periods() per confronto promo
+    4. SCRIVI IMMEDIATAMENTE l'email completa basandoti sui dati ottenuti
     
-    IMPORTANTE: Il tuo output finale DEVE essere l'EMAIL COMPLETA, scritta nello stile appreso dagli esempi storici,
-    con il contesto promozioni integrato in modo naturale e professionale.
+    STILE EMAIL (emula gli esempi nel system prompt):
+    - Apertura diretta con metrica principale (es. "Giovedì 18 dicembre registra 86 SWI...")
+    - Variazioni percentuali con confronto temporale
+    - Dettaglio prodotti con percentuali (Fixa, Pernoi, Trend, Sempre)
+    - Sessioni commodity e Luce&Gas
+    - CR commodity, CR Luce&Gas, CR canalizzazione
+    - Promozioni attive con impatto su performance
+    - Chiusura con firma "Giacomo"
+    
+    REQUISITI TECNICI:
+    - USA SOLO dati REALI dai tool
+    - Formato markdown
+    - L'email deve essere COMPLETA e PRONTA per l'invio
+    
+    RIPETO: La tua risposta finale NON deve contenere preamboli o meta-commenti.
+    DEVE essere SOLO il testo dell'email, che inizia direttamente con l'analisi del giorno.
 
 # Configurazione Email Examples
 examples:

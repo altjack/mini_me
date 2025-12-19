@@ -237,6 +237,11 @@ def get_daily_report(date: Optional[str] = None, compare_days_ago: int = 7) -> s
     Returns:
         Stringa formattata contenente il report giornaliero.
     """
+    # #region agent log
+    import json as _json; _log_path = "/Users/giacomomauri/Desktop/Automation/daily_report/.cursor/debug.log"
+    def _debug_log(loc, msg, data, hyp): open(_log_path, "a").write(_json.dumps({"location": loc, "message": msg, "data": data, "hypothesisId": hyp, "timestamp": __import__("time").time()}) + "\n")
+    _debug_log("tools.py:get_daily_report", "Tool called", {"date": date, "compare_days_ago": compare_days_ago}, "D")
+    # #endregion
     try:
         if date:
             target_date = datetime.strptime(date, '%Y-%m-%d')
@@ -250,14 +255,23 @@ def get_daily_report(date: Optional[str] = None, compare_days_ago: int = 7) -> s
 
         if cache_key in _daily_report_cache:
             logger.info(f"get_daily_report cache hit per {cache_key}")
+            # #region agent log
+            _debug_log("tools.py:get_daily_report", "Cache hit", {"target_date": target_date_str}, "D")
+            # #endregion
             return _daily_report_cache[cache_key]
 
         result = _generate_daily_report_content(target_date, compare_days_ago=compare_days_ago)
         _daily_report_cache[cache_key] = result
+        # #region agent log
+        _debug_log("tools.py:get_daily_report", "Tool success", {"result_len": len(result), "result_preview": result[:200]}, "D")
+        # #endregion
         return result
 
     except Exception as e:
         logger.error(f"Errore nella generazione del report giornaliero: {e}", exc_info=True)
+        # #region agent log
+        _debug_log("tools.py:get_daily_report", "Tool FAILED", {"error": str(e)}, "D")
+        # #endregion
         return f"Errore nella generazione del report giornaliero: {e}"
 
 @tool
@@ -709,6 +723,11 @@ def get_active_promos(date: Optional[str] = None) -> str:
         - Past promotions for comparison (if found)
         - Suggestion to use compare_promo_periods() for detailed analysis
     """
+    # #region agent log
+    import json as _json; _log_path = "/Users/giacomomauri/Desktop/Automation/daily_report/.cursor/debug.log"
+    def _debug_log(loc, msg, data, hyp): open(_log_path, "a").write(_json.dumps({"location": loc, "message": msg, "data": data, "hypothesisId": hyp, "timestamp": __import__("time").time()}) + "\n")
+    _debug_log("tools.py:get_active_promos", "Tool called", {"date": date}, "D")
+    # #endregion
     try:
         # Parse target date and normalize to date only (no time component)
         if date:
@@ -782,10 +801,16 @@ def get_active_promos(date: Optional[str] = None) -> str:
             report += "---\n\n"
             report += "ℹ️ **Nessuna promo precedente** trovata nello stesso giorno della settimana (ultimi 7-21 giorni)\n"
 
+        # #region agent log
+        _debug_log("tools.py:get_active_promos", "Tool success", {"result_len": len(report)}, "D")
+        # #endregion
         return report
 
     except Exception as e:
         logger.error(f"Errore nel recupero promozioni attive: {e}", exc_info=True)
+        # #region agent log
+        _debug_log("tools.py:get_active_promos", "Tool FAILED", {"error": str(e)}, "D")
+        # #endregion
         return f"❌ Errore nel recupero promozioni: {e}"
 
 

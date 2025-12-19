@@ -41,19 +41,33 @@ def create_agent_with_memory(model: str = "claude-haiku-4-5-20251001", verbose: 
     
     Returns:
         Istanza Agent configurata e pronta all'uso
-    """    
+    """
+    # #region agent log
+    import json as _json; _log_path = "/Users/giacomomauri/Desktop/Automation/daily_report/.cursor/debug.log"
+    def _debug_log(loc, msg, data, hyp): open(_log_path, "a").write(_json.dumps({"location": loc, "message": msg, "data": data, "hypothesisId": hyp, "timestamp": __import__("time").time()}) + "\n")
+    # #endregion
+    
     # Carica esempi email da history.md
     try:
         all_examples = load_examples("history.md")
         selected_examples = sample_examples(all_examples, n=6, strategy="recent_weighted")
         examples_context = format_examples_for_prompt(selected_examples)
+        # #region agent log
+        _debug_log("agent.py:create_agent", "Examples loaded OK", {"num_examples": len(selected_examples), "context_len": len(examples_context)}, "E")
+        # #endregion
     except Exception as e:
         print(f"⚠️ Warning: Impossibile caricare esempi: {e}")
         print("L'agente funzionerà senza esempi di riferimento.")
         examples_context = ""
+        # #region agent log
+        _debug_log("agent.py:create_agent", "Examples load FAILED", {"error": str(e)}, "E")
+        # #endregion
     
     # System prompt arricchito con esempi
     enhanced_prompt = f"{SYSTEM_PROMPT}\n\n{examples_context}"
+    # #region agent log
+    _debug_log("agent.py:create_agent", "Enhanced prompt ready", {"prompt_len": len(enhanced_prompt), "model": model}, "C")
+    # #endregion
     
     # Lista tools disponibili
     available_tools = [
