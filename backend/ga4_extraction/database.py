@@ -43,8 +43,8 @@ def get_database_connection(db_url: Optional[str] = None):
         if url.startswith('postgres://'):
             url = url.replace('postgres://', 'postgresql://', 1)
 
-        # Neon e molti provider serverless richiedono SSL; se non specificato, forza sslmode=require
-        if 'sslmode=' not in url:
+        # Neon e molti provider serverless richiedono SSL; forza solo se non locale
+        if 'sslmode=' not in url and 'localhost' not in url and '127.0.0.1' not in url:
             separator = '&' if '?' in url else '?'
             url = f"{url}{separator}sslmode=require"
         

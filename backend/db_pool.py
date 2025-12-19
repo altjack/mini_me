@@ -53,8 +53,8 @@ class DatabasePool:
             if url.startswith('postgres://'):
                 url = url.replace('postgres://', 'postgresql://', 1)
             
-            # Forza SSL se non specificato
-            if 'sslmode=' not in url:
+            # Forza SSL solo se non specificato (permette sslmode=disable per connessioni locali)
+            if 'sslmode=' not in url and 'localhost' not in url and '127.0.0.1' not in url:
                 separator = '&' if '?' in url else '?'
                 url = f"{url}{separator}sslmode=require"
             
