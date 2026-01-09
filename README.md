@@ -261,6 +261,28 @@ uv run backend/api.py
 npm run dev
 ```
 
+### Riavvio Backend (dopo modifiche al codice)
+
+Se hai modificato file Python nel backend, devi riavviare il server per applicare le modifiche:
+
+```bash
+# Metodo 1: Stop e restart completo
+./scripts/stop-local-server.sh
+./scripts/start-local-server.sh
+
+# Metodo 2: Riavvio solo del backend (se avviato manualmente)
+# Trova il processo e terminalo
+pkill -f "backend/api.py"
+# Riavvia
+uv run backend/api.py
+
+# Metodo 3: Con Gunicorn (production)
+pkill -f gunicorn
+gunicorn -w 4 -b 0.0.0.0:5001 backend.api:app
+```
+
+> **Nota:** Il frontend (Vite) supporta l'hot-reload automatico, quindi non è necessario riavviarlo per le modifiche ai file React/JSX.
+
 ### URLs
 
 | Service | URL |

@@ -1213,17 +1213,53 @@ def register_routes(app: Flask):
                     'lucegas': row['lucegas_sessions']
                 })
             
+            # Recupera top 10 campagne per volume totale nel periodo
+            ph = db._placeholder
+            cursor.execute(f"""
+                SELECT campaign, SUM(commodity_sessions + lucegas_sessions) as total
+                FROM sessions_by_campaign
+                WHERE date BETWEEN {ph} AND {ph}
+                AND campaign NOT IN ('(not set)', '(direct)', '(organic)', '(cross-network)', '(referral)')
+                GROUP BY campaign
+                ORDER BY total DESC
+                LIMIT 5
+            """, (start_date_str, end_date_str))
+            
+            top_campaigns = [row['campaign'] for row in cursor.fetchall()]
+            
+            # Recupera sessioni per le top campagne
+            by_campaign = []
+            if top_campaigns:
+                placeholders = ','.join([ph] * len(top_campaigns))
+                cursor.execute(f"""
+                    SELECT date, campaign, commodity_sessions, lucegas_sessions
+                    FROM sessions_by_campaign
+                    WHERE date BETWEEN {ph} AND {ph}
+                    AND campaign IN ({placeholders})
+                    ORDER BY date ASC, campaign
+                """, (start_date_str, end_date_str, *top_campaigns))
+                
+                for row in cursor.fetchall():
+                    by_campaign.append({
+                        'date': row['date'],
+                        'campaign': row['campaign'],
+                        'commodity': row['commodity_sessions'],
+                        'lucegas': row['lucegas_sessions']
+                    })
+            
             return jsonify({
                 'success': True,
                 'data': {
                     'totals': totals,
-                    'by_channel': by_channel
+                    'by_channel': by_channel,
+                    'by_campaign': by_campaign
                 },
                 'meta': {
                     'start_date': start_date_str,
                     'end_date': end_date_str,
                     'count': len(totals),
-                    'channels': TARGET_CHANNELS
+                    'channels': TARGET_CHANNELS,
+                    'campaigns': top_campaigns
                 }
             })
         finally:
