@@ -1105,6 +1105,8 @@ def register_routes(app: Flask):
                     'swi': m['swi_conversioni'],
                     'cr_commodity': m['cr_commodity'],
                     'cr_lucegas': m['cr_lucegas'],
+                    'sessioni_commodity': m['sessioni_commodity'],
+                    'sessioni_lucegas': m['sessioni_lucegas'],
                     'isWeekend': is_weekend
                 })
             
@@ -1222,6 +1224,148 @@ def register_routes(app: Flask):
                     'end_date': end_date_str,
                     'count': len(totals),
                     'channels': TARGET_CHANNELS
+                }
+            })
+        finally:
+            db.close()
+
+    @app.route('/api/swi-by-commodity/range', methods=['GET'])
+    @handle_errors
+    def get_swi_by_commodity_range():
+        """
+        Recupera SWI per commodity aggregato per un range di date.
+
+        Query Parameters:
+            start_date: Data inizio (YYYY-MM-DD)
+            end_date: Data fine (YYYY-MM-DD)
+
+        Returns:
+            JSON con aggregazione SWI per commodity type
+        """
+        end_date_str = request.args.get('end_date')
+        start_date_str = request.args.get('start_date')
+
+        if not end_date_str or not start_date_str:
+            return jsonify({
+                'success': False,
+                'error': 'start_date and end_date are required'
+            }), 400
+
+        try:
+            start_date = datetime.strptime(start_date_str, '%Y-%m-%d')
+            end_date = datetime.strptime(end_date_str, '%Y-%m-%d')
+        except ValueError:
+            return jsonify({
+                'success': False,
+                'error': 'Invalid date format. Use YYYY-MM-DD'
+            }), 400
+
+        if start_date > end_date:
+            return jsonify({
+                'success': False,
+                'error': 'start_date must be before or equal to end_date'
+            }), 400
+
+        db = get_db()
+        try:
+            cursor = db.conn.cursor()
+            ph = db._placeholder
+
+            # Aggrega SWI per commodity type nel range
+            cursor.execute(f"""
+                SELECT commodity_type, SUM(conversions) as total_conversions
+                FROM swi_by_commodity
+                WHERE date BETWEEN {ph} AND {ph}
+                GROUP BY commodity_type
+                ORDER BY total_conversions DESC
+            """, (start_date_str, end_date_str))
+
+            rows = cursor.fetchall()
+            data = [{'commodity_type': row['commodity_type'], 'conversions': row['total_conversions']} for row in rows]
+
+            # Calcola totale per percentuali
+            total = sum(d['conversions'] for d in data)
+            for d in data:
+                d['percentage'] = round((d['conversions'] / total * 100), 1) if total > 0 else 0
+
+            return jsonify({
+                'success': True,
+                'data': data,
+                'meta': {
+                    'start_date': start_date_str,
+                    'end_date': end_date_str,
+                    'total': total
+                }
+            })
+        finally:
+            db.close()
+
+    @app.route('/api/products/range', methods=['GET'])
+    @handle_errors
+    def get_products_range():
+        """
+        Recupera performance prodotti aggregata per un range di date.
+
+        Query Parameters:
+            start_date: Data inizio (YYYY-MM-DD)
+            end_date: Data fine (YYYY-MM-DD)
+
+        Returns:
+            JSON con aggregazione conversioni per prodotto
+        """
+        end_date_str = request.args.get('end_date')
+        start_date_str = request.args.get('start_date')
+
+        if not end_date_str or not start_date_str:
+            return jsonify({
+                'success': False,
+                'error': 'start_date and end_date are required'
+            }), 400
+
+        try:
+            start_date = datetime.strptime(start_date_str, '%Y-%m-%d')
+            end_date = datetime.strptime(end_date_str, '%Y-%m-%d')
+        except ValueError:
+            return jsonify({
+                'success': False,
+                'error': 'Invalid date format. Use YYYY-MM-DD'
+            }), 400
+
+        if start_date > end_date:
+            return jsonify({
+                'success': False,
+                'error': 'start_date must be before or equal to end_date'
+            }), 400
+
+        db = get_db()
+        try:
+            cursor = db.conn.cursor()
+            ph = db._placeholder
+
+            # Aggrega conversioni per prodotto nel range
+            cursor.execute(f"""
+                SELECT product_name, SUM(total_conversions) as total_conversions
+                FROM products_performance
+                WHERE date BETWEEN {ph} AND {ph}
+                GROUP BY product_name
+                ORDER BY total_conversions DESC
+            """, (start_date_str, end_date_str))
+
+            rows = cursor.fetchall()
+            data = [{'product_name': row['product_name'], 'conversions': row['total_conversions']} for row in rows]
+
+            # Calcola totale per percentuali
+            total = sum(d['conversions'] for d in data)
+            for d in data:
+                d['percentage'] = round((d['conversions'] / total * 100), 1) if total > 0 else 0
+
+            return jsonify({
+                'success': True,
+                'data': data,
+                'meta': {
+                    'start_date': start_date_str,
+                    'end_date': end_date_str,
+                    'total': total
                 }
             })
         finally:

@@ -7,7 +7,8 @@ import { api } from '../services/api';
 import { logError } from '../utils/logger';
 import { usePromo } from '../context/PromoContext';
 import promoCalendar from '../data/promoCalendar.json';
-import { Calendar, RefreshCw, TrendingUp, TrendingDown, Gift, ArrowRight } from 'lucide-react';
+import { Calendar, RefreshCw, TrendingUp, TrendingDown, Gift, ArrowRight, Users, Package } from 'lucide-react';
+import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip } from 'recharts';
 
 // =============================================================================
 // TYPES & CONSTANTS
@@ -18,6 +19,18 @@ const PROMO_TYPE_COLORS = {
   'Promo': 'bg-emerald-100 text-emerald-800 border-emerald-200',
   'Prodotto': 'bg-violet-100 text-violet-800 border-violet-200',
 };
+
+// Colori per grafici a torta
+const PIE_COLORS = [
+  '#3B82F6', // blue
+  '#10B981', // emerald
+  '#F59E0B', // amber
+  '#EF4444', // red
+  '#8B5CF6', // violet
+  '#EC4899', // pink
+  '#06B6D4', // cyan
+  '#84CC16', // lime
+];
 
 // =============================================================================
 // UTILITY FUNCTIONS
@@ -185,6 +198,249 @@ const PromoSelector = memo(({ selectedPromo, onSelect, promos }) => {
 PromoSelector.displayName = 'PromoSelector';
 
 // =============================================================================
+// TRAFFIC BREAKDOWN COMPONENT
+// =============================================================================
+
+const TrafficBreakdown = memo(({ promoData, comparisonData, loading }) => {
+  // Calcola totali sessioni
+  const trafficData = useMemo(() => {
+    if (!promoData?.data || !comparisonData?.data) return null;
+
+    const promoTotals = promoData.data.reduce((acc, d) => ({
+      commodity: acc.commodity + (d.sessioni_commodity || 0),
+      lucegas: acc.lucegas + (d.sessioni_lucegas || 0),
+    }), { commodity: 0, lucegas: 0 });
+
+    const compTotals = comparisonData.data.reduce((acc, d) => ({
+      commodity: acc.commodity + (d.sessioni_commodity || 0),
+      lucegas: acc.lucegas + (d.sessioni_lucegas || 0),
+    }), { commodity: 0, lucegas: 0 });
+
+    return {
+      promo: promoTotals,
+      comparison: compTotals,
+      changes: {
+        commodity: calculateChange(promoTotals.commodity, compTotals.commodity),
+        lucegas: calculateChange(promoTotals.lucegas, compTotals.lucegas),
+      }
+    };
+  }, [promoData, comparisonData]);
+
+  if (!trafficData) return null;
+
+  const rows = [
+    { label: 'Sessioni Commodity', promo: trafficData.promo.commodity, comp: trafficData.comparison.commodity, change: trafficData.changes.commodity },
+    { label: 'Sessioni Luce e Gas', promo: trafficData.promo.lucegas, comp: trafficData.comparison.lucegas, change: trafficData.changes.lucegas },
+  ];
+
+  return (
+    <Card className="relative">
+      {loading && (
+        <div className="absolute inset-0 bg-white/70 flex items-center justify-center rounded-xl z-10">
+          <RefreshCw size={24} className="text-gray-400 animate-spin" />
+        </div>
+      )}
+
+      <div className="flex items-center gap-2 mb-4">
+        <Users size={20} className="text-blue-500" />
+        <Title className="text-lg font-semibold text-gray-900">Spaccato Traffico</Title>
+      </div>
+
+      <div className="overflow-x-auto">
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="border-b border-gray-200">
+              <th className="text-left py-2 px-3 font-medium text-gray-600">Metrica</th>
+              <th className="text-right py-2 px-3 font-medium text-amber-600">Promo</th>
+              <th className="text-right py-2 px-3 font-medium text-blue-600">Confronto</th>
+              <th className="text-right py-2 px-3 font-medium text-gray-600">Variazione</th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((row, idx) => {
+              const isPositive = row.change !== null && row.change >= 0;
+              return (
+                <tr key={idx} className="border-b border-gray-100 last:border-0">
+                  <td className="py-3 px-3 text-gray-700 font-medium">{row.label}</td>
+                  <td className="py-3 px-3 text-right text-gray-900 font-semibold">
+                    {formatNumber(row.promo)}
+                  </td>
+                  <td className="py-3 px-3 text-right text-gray-500">
+                    {formatNumber(row.comp)}
+                  </td>
+                  <td className={`py-3 px-3 text-right font-semibold ${isPositive ? 'text-emerald-600' : 'text-red-600'}`}>
+                    {row.change !== null ? (
+                      <span className="flex items-center justify-end gap-1">
+                        {isPositive ? <TrendingUp size={14} /> : <TrendingDown size={14} />}
+                        {row.change >= 0 ? '+' : ''}{formatNumber(row.change, 1)}%
+                      </span>
+                    ) : '-'}
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+    </Card>
+  );
+});
+
+TrafficBreakdown.displayName = 'TrafficBreakdown';
+
+// =============================================================================
+// PIE CHART COMPONENTS
+// =============================================================================
+
+const CustomPieTooltip = ({ active, payload }) => {
+  if (active && payload && payload.length) {
+    const data = payload[0];
+    return (
+      <div className="bg-white px-3 py-2 shadow-lg rounded-lg border border-gray-200">
+        <p className="font-medium text-gray-900">{data.name}</p>
+        <p className="text-sm text-gray-600">
+          {formatNumber(data.value)} ({data.payload.percentage}%)
+        </p>
+      </div>
+    );
+  }
+  return null;
+};
+
+const SwiByCommoidityChart = memo(({ data, loading, title = "SWI per Commodity" }) => {
+  if (!data || data.length === 0) return null;
+
+  const chartData = data.map(d => ({
+    name: d.commodity_type,
+    value: d.conversions,
+    percentage: d.percentage,
+  }));
+
+  return (
+    <Card className="relative">
+      {loading && (
+        <div className="absolute inset-0 bg-white/70 flex items-center justify-center rounded-xl z-10">
+          <RefreshCw size={24} className="text-gray-400 animate-spin" />
+        </div>
+      )}
+
+      <div className="flex items-center gap-2 mb-4">
+        <TrendingUp size={20} className="text-emerald-500" />
+        <Title className="text-lg font-semibold text-gray-900">{title}</Title>
+      </div>
+
+      <div className="h-64">
+        <ResponsiveContainer width="100%" height="100%">
+          <PieChart>
+            <Pie
+              data={chartData}
+              cx="50%"
+              cy="50%"
+              innerRadius={50}
+              outerRadius={80}
+              paddingAngle={2}
+              dataKey="value"
+              label={({ name, percentage }) => `${percentage}%`}
+              labelLine={false}
+            >
+              {chartData.map((_, index) => (
+                <Cell key={`cell-${index}`} fill={PIE_COLORS[index % PIE_COLORS.length]} />
+              ))}
+            </Pie>
+            <Tooltip content={<CustomPieTooltip />} />
+            <Legend
+              verticalAlign="bottom"
+              height={36}
+              formatter={(value) => <span className="text-xs text-gray-600">{value}</span>}
+            />
+          </PieChart>
+        </ResponsiveContainer>
+      </div>
+    </Card>
+  );
+});
+
+SwiByCommoidityChart.displayName = 'SwiByCommoidityChart';
+
+const ProductPerformanceChart = memo(({ data, loading, title = "Performance Prodotti" }) => {
+  if (!data || data.length === 0) return null;
+
+  // Limita a top 6 prodotti + "Altri"
+  const chartData = useMemo(() => {
+    if (data.length <= 6) {
+      return data.map(d => ({
+        name: d.product_name,
+        value: d.conversions,
+        percentage: d.percentage,
+      }));
+    }
+
+    const top5 = data.slice(0, 5);
+    const others = data.slice(5);
+    const othersTotal = others.reduce((sum, d) => sum + d.conversions, 0);
+    const total = data.reduce((sum, d) => sum + d.conversions, 0);
+
+    return [
+      ...top5.map(d => ({
+        name: d.product_name,
+        value: d.conversions,
+        percentage: d.percentage,
+      })),
+      {
+        name: 'Altri',
+        value: othersTotal,
+        percentage: total > 0 ? Math.round(othersTotal / total * 1000) / 10 : 0,
+      }
+    ];
+  }, [data]);
+
+  return (
+    <Card className="relative">
+      {loading && (
+        <div className="absolute inset-0 bg-white/70 flex items-center justify-center rounded-xl z-10">
+          <RefreshCw size={24} className="text-gray-400 animate-spin" />
+        </div>
+      )}
+
+      <div className="flex items-center gap-2 mb-4">
+        <Package size={20} className="text-violet-500" />
+        <Title className="text-lg font-semibold text-gray-900">{title}</Title>
+      </div>
+
+      <div className="h-64">
+        <ResponsiveContainer width="100%" height="100%">
+          <PieChart>
+            <Pie
+              data={chartData}
+              cx="50%"
+              cy="50%"
+              innerRadius={50}
+              outerRadius={80}
+              paddingAngle={2}
+              dataKey="value"
+              label={({ percentage }) => `${percentage}%`}
+              labelLine={false}
+            >
+              {chartData.map((_, index) => (
+                <Cell key={`cell-${index}`} fill={PIE_COLORS[index % PIE_COLORS.length]} />
+              ))}
+            </Pie>
+            <Tooltip content={<CustomPieTooltip />} />
+            <Legend
+              verticalAlign="bottom"
+              height={36}
+              formatter={(value) => <span className="text-xs text-gray-600">{value}</span>}
+            />
+          </PieChart>
+        </ResponsiveContainer>
+      </div>
+    </Card>
+  );
+});
+
+ProductPerformanceChart.displayName = 'ProductPerformanceChart';
+
+// =============================================================================
 // MAIN COMPONENT
 // =============================================================================
 
@@ -202,6 +458,8 @@ function PromoDashboardComponent() {
   // Local state: Data (fetched on mount/change)
   const [promoData, setPromoData] = useState(null);
   const [comparisonData, setComparisonData] = useState(null);
+  const [promoSwiByComodity, setPromoSwiByComodity] = useState(null);
+  const [promoProducts, setPromoProducts] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
@@ -234,6 +492,8 @@ function PromoDashboardComponent() {
     if (!selectedPromo || !compStartDate || !compEndDate) {
       setPromoData(null);
       setComparisonData(null);
+      setPromoSwiByComodity(null);
+      setPromoProducts(null);
       return;
     }
 
@@ -241,10 +501,12 @@ function PromoDashboardComponent() {
     setError(null);
 
     try {
-      // Fetch both periods in parallel
-      const [promoRes, compRes] = await Promise.all([
+      // Fetch all data in parallel
+      const [promoRes, compRes, swiRes, productsRes] = await Promise.all([
         api.getMetricsRange(selectedPromo.startDate, selectedPromo.endDate),
-        api.getMetricsRange(compStartDate, compEndDate)
+        api.getMetricsRange(compStartDate, compEndDate),
+        api.getSwiByCommmodityRange(selectedPromo.startDate, selectedPromo.endDate),
+        api.getProductsRange(selectedPromo.startDate, selectedPromo.endDate)
       ]);
 
       if (promoRes.data.success) {
@@ -257,6 +519,16 @@ function PromoDashboardComponent() {
         setComparisonData(compRes.data);
       } else {
         throw new Error(compRes.data.error || 'Errore caricamento dati confronto');
+      }
+
+      // SWI by commodity (opzionale - potrebbe non esserci dati)
+      if (swiRes.data.success) {
+        setPromoSwiByComodity(swiRes.data.data);
+      }
+
+      // Products performance (opzionale)
+      if (productsRes.data.success) {
+        setPromoProducts(productsRes.data.data);
       }
     } catch (err) {
       logError('Failed to fetch promo data', err);
@@ -288,9 +560,17 @@ function PromoDashboardComponent() {
     const promoCrCommodity = promoData.meta?.avg_cr_commodity || 0;
     const compCrCommodity = comparisonData.meta?.avg_cr_commodity || 0;
 
+    // Sessioni Commodity: totale
+    const promoSessioniCommodity = promoData.meta?.count || 0;
+    const compSessioniCommodity = comparisonData.meta?.count || 0;
+
     // CR Luce e Gas: media
     const promoCrLucegas = promoData.meta?.avg_cr_lucegas || 0;
     const compCrLucegas = comparisonData.meta?.avg_cr_lucegas || 0;
+
+    // Sessioni Luce e Gas: totale
+    const promoSessioniLucegas = promoData.meta?.count || 0;
+    const compSessioniLucegas = comparisonData.meta?.count || 0;
 
     return {
       swi: {
@@ -445,6 +725,33 @@ function PromoDashboardComponent() {
             unit="%"
             loading={loading}
             decorationColor="violet"
+          />
+        </div>
+      )}
+
+      {/* Traffic Breakdown */}
+      {selectedPromo && promoData && comparisonData && (
+        <div className="mt-6">
+          <TrafficBreakdown
+            promoData={promoData}
+            comparisonData={comparisonData}
+            loading={loading}
+          />
+        </div>
+      )}
+
+      {/* Pie Charts */}
+      {selectedPromo && (promoSwiByComodity || promoProducts) && (
+        <div className="mt-6 grid grid-cols-1 md:grid-cols-2 gap-6">
+          <SwiByCommoidityChart
+            data={promoSwiByComodity}
+            loading={loading}
+            title="SWI per Commodity"
+          />
+          <ProductPerformanceChart
+            data={promoProducts}
+            loading={loading}
+            title="Performance Prodotti"
           />
         </div>
       )}

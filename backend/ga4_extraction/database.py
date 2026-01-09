@@ -249,15 +249,37 @@ class GA4Database:
             """)
             
             cursor.execute("""
-                CREATE INDEX IF NOT EXISTS idx_campaign_date 
+                CREATE INDEX IF NOT EXISTS idx_campaign_date
                 ON sessions_by_campaign(date DESC)
             """)
-            
+
             cursor.execute("""
-                CREATE INDEX IF NOT EXISTS idx_campaign_name 
+                CREATE INDEX IF NOT EXISTS idx_campaign_name
                 ON sessions_by_campaign(campaign)
             """)
-            
+
+            # Tabella SWI per commodity type
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS swi_by_commodity (
+                    id SERIAL PRIMARY KEY,
+                    date DATE NOT NULL,
+                    commodity_type TEXT NOT NULL,
+                    conversions INTEGER NOT NULL DEFAULT 0,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    UNIQUE(date, commodity_type)
+                )
+            """)
+
+            cursor.execute("""
+                CREATE INDEX IF NOT EXISTS idx_swi_commodity_date
+                ON swi_by_commodity(date DESC)
+            """)
+
+            cursor.execute("""
+                CREATE INDEX IF NOT EXISTS idx_swi_commodity_type
+                ON swi_by_commodity(commodity_type)
+            """)
+
         else:
             # SQLite schema (originale)
             cursor.execute("""
@@ -337,15 +359,38 @@ class GA4Database:
             """)
             
             cursor.execute("""
-                CREATE INDEX IF NOT EXISTS idx_campaign_date 
+                CREATE INDEX IF NOT EXISTS idx_campaign_date
                 ON sessions_by_campaign(date DESC)
             """)
-            
+
             cursor.execute("""
-                CREATE INDEX IF NOT EXISTS idx_campaign_name 
+                CREATE INDEX IF NOT EXISTS idx_campaign_name
                 ON sessions_by_campaign(campaign)
             """)
-        
+
+            # Tabella SWI per commodity type
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS swi_by_commodity (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    date DATE NOT NULL,
+                    commodity_type TEXT NOT NULL,
+                    conversions INTEGER NOT NULL DEFAULT 0,
+                    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    FOREIGN KEY (date) REFERENCES daily_metrics(date) ON DELETE CASCADE,
+                    UNIQUE(date, commodity_type)
+                )
+            """)
+
+            cursor.execute("""
+                CREATE INDEX IF NOT EXISTS idx_swi_commodity_date
+                ON swi_by_commodity(date DESC)
+            """)
+
+            cursor.execute("""
+                CREATE INDEX IF NOT EXISTS idx_swi_commodity_type
+                ON swi_by_commodity(commodity_type)
+            """)
+
         self.conn.commit()
         logger.info(f"Schema database creato con successo ({self.db_type})")
     
@@ -660,7 +705,86 @@ class GA4Database:
         
         rows = cursor.fetchall()
         return [dict(row) for row in rows]
-    
+
+    def insert_swi_by_commodity(
+        self,
+        date: str,
+        commodities: List[Dict[str, Any]],
+        replace: bool = True
+    ) -> bool:
+        """
+        Inserisce conversioni SWI per tipo commodity per una data.
+
+        Args:
+            date: Data in formato YYYY-MM-DD
+            commodities: Lista di dict con commodity_type, conversions
+            replace: Se True, elimina record esistenti per quella data
+
+        Returns:
+            True se successo, False altrimenti
+        """
+        try:
+            cursor = self.conn.cursor()
+            ph = self._placeholder
+
+            if replace:
+                cursor.execute(
+                    f"DELETE FROM swi_by_commodity WHERE date = {ph}",
+                    (date,)
+                )
+
+            for commodity in commodities:
+                if self.db_type == 'postgresql':
+                    cursor.execute("""
+                        INSERT INTO swi_by_commodity
+                        (date, commodity_type, conversions)
+                        VALUES (%s, %s, %s)
+                    """, (
+                        date,
+                        commodity['commodity_type'],
+                        commodity['conversions']
+                    ))
+                else:
+                    cursor.execute("""
+                        INSERT INTO swi_by_commodity
+                        (date, commodity_type, conversions)
+                        VALUES (?, ?, ?)
+                    """, (
+                        date,
+                        commodity['commodity_type'],
+                        commodity['conversions']
+                    ))
+
+            self.conn.commit()
+            logger.info(f"SWI per commodity salvati per data {date}: {len(commodities)} tipi")
+            return True
+
+        except Exception as e:
+            logger.error(f"Errore inserimento SWI per commodity per {date}: {e}")
+            self.conn.rollback()
+            return False
+
+    def get_swi_by_commodity(self, date: str) -> List[Dict[str, Any]]:
+        """
+        Recupera conversioni SWI per tipo commodity per una data.
+
+        Args:
+            date: Data in formato YYYY-MM-DD
+
+        Returns:
+            Lista di dict con conversioni per commodity type ordinate per conversions DESC
+        """
+        cursor = self.conn.cursor()
+        ph = self._placeholder
+        cursor.execute(f"""
+            SELECT * FROM swi_by_commodity
+            WHERE date = {ph}
+            ORDER BY conversions DESC
+        """, (date,))
+
+        rows = cursor.fetchall()
+        return [dict(row) for row in rows]
+
     def get_metrics(self, date: str) -> Optional[Dict[str, Any]]:
         """
         Recupera metriche per una data specifica.
@@ -937,11 +1061,144 @@ class GA4Database:
                     return False
             
             return True
-            
+
         except Exception as e:
             logger.error(f"Errore verifica esistenza dati per {date}: {e}")
             return False
-    
+
+    def get_table_dates(self, table_name: str) -> set:
+        """
+        Recupera tutte le date uniche presenti in una tabella.
+
+        Args:
+            table_name: Nome della tabella (daily_metrics, products_performance, etc.)
+
+        Returns:
+            Set di date in formato stringa YYYY-MM-DD
+        """
+        valid_tables = [
+            'daily_metrics', 'products_performance', 'swi_by_commodity',
+            'sessions_by_channel', 'sessions_by_campaign'
+        ]
+
+        if table_name not in valid_tables:
+            logger.warning(f"Tabella non valida: {table_name}")
+            return set()
+
+        try:
+            cursor = self.conn.cursor()
+            cursor.execute(f"SELECT DISTINCT date FROM {table_name} ORDER BY date")
+            rows = cursor.fetchall()
+
+            dates = set()
+            for row in rows:
+                date_val = row['date'] if isinstance(row, dict) else row[0]
+                if hasattr(date_val, 'isoformat'):
+                    dates.add(date_val.isoformat())
+                else:
+                    dates.add(str(date_val))
+
+            return dates
+
+        except Exception as e:
+            logger.error(f"Errore recupero date da {table_name}: {e}")
+            return set()
+
+    def check_alignment_status(self) -> dict:
+        """
+        Verifica lo stato di allineamento di tutte le tabelle rispetto a daily_metrics.
+
+        Regole:
+        - products_performance: stesse date di daily_metrics
+        - swi_by_commodity: stesse date di daily_metrics
+        - sessions_by_channel: date fino a max_date - 2 giorni (D-2)
+        - sessions_by_campaign: date fino a max_date - 2 giorni (D-2)
+
+        Returns:
+            Dict con status di allineamento per ogni tabella
+        """
+        from datetime import datetime, timedelta
+
+        # Configurazione tabelle satellite
+        table_config = {
+            'products_performance': {'delay_days': 0},
+            'swi_by_commodity': {'delay_days': 0},
+            'sessions_by_channel': {'delay_days': 2},
+            'sessions_by_campaign': {'delay_days': 2},
+        }
+
+        # Recupera date di riferimento da daily_metrics
+        reference_dates = self.get_table_dates('daily_metrics')
+
+        if not reference_dates:
+            return {
+                'reference': {
+                    'table': 'daily_metrics',
+                    'count': 0,
+                    'min_date': None,
+                    'max_date': None
+                },
+                'tables': {},
+                'summary': {
+                    'all_aligned': True,
+                    'tables_missing_data': []
+                }
+            }
+
+        sorted_dates = sorted(reference_dates)
+        min_date = sorted_dates[0]
+        max_date = sorted_dates[-1]
+        max_date_obj = datetime.strptime(max_date, '%Y-%m-%d')
+
+        result = {
+            'reference': {
+                'table': 'daily_metrics',
+                'count': len(reference_dates),
+                'min_date': min_date,
+                'max_date': max_date,
+                'dates': reference_dates
+            },
+            'tables': {},
+            'summary': {
+                'all_aligned': True,
+                'tables_missing_data': []
+            }
+        }
+
+        # Verifica ogni tabella satellite
+        for table_name, config in table_config.items():
+            delay_days = config['delay_days']
+
+            # Calcola date attese
+            if delay_days > 0:
+                cutoff_date = (max_date_obj - timedelta(days=delay_days)).strftime('%Y-%m-%d')
+                expected_dates = {d for d in reference_dates if d <= cutoff_date}
+            else:
+                expected_dates = reference_dates.copy()
+
+            # Recupera date esistenti
+            actual_dates = self.get_table_dates(table_name)
+
+            # Calcola date mancanti
+            missing_dates = sorted(expected_dates - actual_dates)
+
+            is_aligned = len(missing_dates) == 0
+
+            result['tables'][table_name] = {
+                'delay_days': delay_days,
+                'expected_count': len(expected_dates),
+                'actual_count': len(actual_dates),
+                'missing_count': len(missing_dates),
+                'missing_dates': missing_dates,
+                'aligned': is_aligned
+            }
+
+            if not is_aligned:
+                result['summary']['all_aligned'] = False
+                result['summary']['tables_missing_data'].append(table_name)
+
+        return result
+
     def close(self):
         """
         Chiude connessione database.

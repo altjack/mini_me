@@ -49,7 +49,7 @@ class CampaignsExtractor(BaseExtractor):
         # Query per sessioni Commodity per campagna
         request_commodity = RunReportRequest(
             property=f'properties/{PROPERTY_ID}',
-            dimensions=[Dimension(name="sessionCampaign")],
+            dimensions=[Dimension(name="sessionCampaignName")],
             metrics=[Metric(name='sessions')],
             date_ranges=[DateRange(start_date=date, end_date=date)],
             dimension_filter=session_commodity_filter()
@@ -60,7 +60,7 @@ class CampaignsExtractor(BaseExtractor):
         # Query per sessioni Luce&Gas per campagna
         request_lucegas = RunReportRequest(
             property=f'properties/{PROPERTY_ID}',
-            dimensions=[Dimension(name="sessionCampaign")],
+            dimensions=[Dimension(name="sessionCampaignName")],
             metrics=[Metric(name='sessions')],
             date_ranges=[DateRange(start_date=date, end_date=date)],
             dimension_filter=session_lucegas_filter()
