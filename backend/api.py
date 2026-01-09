@@ -1229,7 +1229,7 @@ def register_routes(app: Flask):
         finally:
             db.close()
 
-    @app.route('/api/swi-by-commodity/range', methods=['GET'])
+    @app.route('/api/swi-by-commodity/range', methods=['GET', 'OPTIONS'])
     @handle_errors
     def get_swi_by_commodity_range():
         """
@@ -1242,6 +1242,9 @@ def register_routes(app: Flask):
         Returns:
             JSON con aggregazione SWI per commodity type
         """
+        if request.method == 'OPTIONS':
+            return '', 204
+
         end_date_str = request.args.get('end_date')
         start_date_str = request.args.get('start_date')
 
@@ -1300,7 +1303,7 @@ def register_routes(app: Flask):
         finally:
             db.close()
 
-    @app.route('/api/products/range', methods=['GET'])
+    @app.route('/api/products/range', methods=['GET', 'OPTIONS'])
     @handle_errors
     def get_products_range():
         """
@@ -1313,6 +1316,9 @@ def register_routes(app: Flask):
         Returns:
             JSON con aggregazione conversioni per prodotto
         """
+        if request.method == 'OPTIONS':
+            return '', 204
+
         end_date_str = request.args.get('end_date')
         start_date_str = request.args.get('start_date')
 

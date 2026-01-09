@@ -307,7 +307,7 @@ const CustomPieTooltip = ({ active, payload }) => {
   return null;
 };
 
-const SwiByCommoidityChart = memo(({ data, loading, title = "SWI per Commodity" }) => {
+const SwiByCommodityChart = memo(({ data, loading, title = "SWI per Commodity" }) => {
   if (!data || data.length === 0) return null;
 
   const chartData = data.map(d => ({
@@ -360,7 +360,7 @@ const SwiByCommoidityChart = memo(({ data, loading, title = "SWI per Commodity" 
   );
 });
 
-SwiByCommoidityChart.displayName = 'SwiByCommoidityChart';
+SwiByCommodityChart.displayName = 'SwiByCommodityChart';
 
 const ProductPerformanceChart = memo(({ data, loading, title = "Performance Prodotti" }) => {
   if (!data || data.length === 0) return null;
@@ -505,7 +505,7 @@ function PromoDashboardComponent() {
       const [promoRes, compRes, swiRes, productsRes] = await Promise.all([
         api.getMetricsRange(selectedPromo.startDate, selectedPromo.endDate),
         api.getMetricsRange(compStartDate, compEndDate),
-        api.getSwiByCommmodityRange(selectedPromo.startDate, selectedPromo.endDate),
+        api.getSwiByCommodityRange(selectedPromo.startDate, selectedPromo.endDate),
         api.getProductsRange(selectedPromo.startDate, selectedPromo.endDate)
       ]);
 
@@ -743,7 +743,7 @@ function PromoDashboardComponent() {
       {/* Pie Charts */}
       {selectedPromo && (promoSwiByComodity || promoProducts) && (
         <div className="mt-6 grid grid-cols-1 md:grid-cols-2 gap-6">
-          <SwiByCommoidityChart
+          <SwiByCommodityChart
             data={promoSwiByComodity}
             loading={loading}
             title="SWI per Commodity"
