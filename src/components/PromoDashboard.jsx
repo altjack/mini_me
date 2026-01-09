@@ -329,8 +329,8 @@ const SwiByCommodityChart = memo(({ data, loading, title = "SWI per Commodity" }
         <Title className="text-lg font-semibold text-gray-900">{title}</Title>
       </div>
 
-      <div className="h-64">
-        <ResponsiveContainer width="100%" height="100%">
+      <div className="h-64 min-h-[256px]">
+        <ResponsiveContainer width="100%" height="100%" minHeight={200}>
           <PieChart>
             <Pie
               data={chartData}
@@ -340,7 +340,7 @@ const SwiByCommodityChart = memo(({ data, loading, title = "SWI per Commodity" }
               outerRadius={80}
               paddingAngle={2}
               dataKey="value"
-              label={({ name, percentage }) => `${percentage}%`}
+              label={({ percentage }) => `${percentage}%`}
               labelLine={false}
             >
               {chartData.map((_, index) => (
@@ -407,8 +407,8 @@ const ProductPerformanceChart = memo(({ data, loading, title = "Performance Prod
         <Title className="text-lg font-semibold text-gray-900">{title}</Title>
       </div>
 
-      <div className="h-64">
-        <ResponsiveContainer width="100%" height="100%">
+      <div className="h-64 min-h-[256px]">
+        <ResponsiveContainer width="100%" height="100%" minHeight={200}>
           <PieChart>
             <Pie
               data={chartData}

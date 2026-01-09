@@ -36,7 +36,8 @@
     { "source": "/api/reject", "destination": "/api/reject.py" },
     { "source": "/api/backfill", "destination": "/api/backfill.py" },
     { "source": "/api/metrics/range", "destination": "/api/metrics/range.py" },
-    { "source": "/api/sessions/range", "destination": "/api/sessions/range.py" }
+    { "source": "/api/sessions/range", "destination": "/api/sessions/range.py" },
+    { "source": "/((?!api/).*)", "destination": "/index.html" }
   ],
   
   "headers": [
