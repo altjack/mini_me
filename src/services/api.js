@@ -139,7 +139,7 @@ export const api = {
     if (endDate) params.append('end_date', endDate);
     return apiClient.get(`/sessions/range?${params.toString()}`);
   },
-  getSwiByCommmodityRange: (startDate, endDate) => {
+  getSwiByCommodityRange: (startDate, endDate) => {
     const params = new URLSearchParams();
     if (startDate) params.append('start_date', startDate);
     if (endDate) params.append('end_date', endDate);
