@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
-import { api, setToken, clearToken, getToken, isTokenExpired } from '../services/api';
+import { api, setToken, clearToken, getToken } from '../services/api';
 import { logError } from '../utils/logger';
 
 // =============================================================================
@@ -47,7 +47,7 @@ export const AuthProvider = ({ children }) => {
         await api.getStats();
         // Token is valid
         setIsAuthenticated(true);
-      } catch (error) {
+      } catch {
         // Token invalid or expired
         clearToken();
         setIsAuthenticated(false);
@@ -137,6 +137,7 @@ export const AuthProvider = ({ children }) => {
 // HOOK
 // =============================================================================
 
+// eslint-disable-next-line react-refresh/only-export-components
 export const useAuth = () => {
   const context = useContext(AuthContext);
   if (!context) {

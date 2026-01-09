@@ -1,14 +1,16 @@
-import React, { useState, useEffect, useMemo, useCallback, memo, useRef } from 'react';
+import React, { useEffect, useMemo, useCallback, memo, useRef } from 'react';
 import { Card, Title, Text } from './ui/Card';
-import toast from 'react-hot-toast';
+import { Button } from './ui/Button';
 import { format, subDays, parseISO, differenceInDays } from 'date-fns';
 import { it } from 'date-fns/locale';
-import { api } from '../services/api';
-import { logError } from '../utils/logger';
+import { Input } from './ui/Input';
+import { Select } from './ui/Select';
+import { Skeleton } from './ui/Skeleton';
 import { usePromo } from '../context/PromoContext';
 import promoCalendar from '../data/promoCalendar.json';
 import { Calendar, RefreshCw, TrendingUp, TrendingDown, Gift, ArrowRight, Users, Package } from 'lucide-react';
 import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip } from 'recharts';
+import { useMetricsRange, useSwiByCommodity, useProductsPerformance } from '../hooks/usePromoData';
 
 // =============================================================================
 // TYPES & CONSTANTS
@@ -38,7 +40,6 @@ const PIE_COLORS = [
 
 /**
  * Calcola la variazione percentuale tra due valori
- * @returns {number|null} Percentuale di variazione o null se non calcolabile
  */
 const calculateChange = (current, previous) => {
   if (previous === null || previous === undefined || previous === 0) return null;
@@ -90,18 +91,16 @@ const KPIWidget = memo(({
   loading = false,
   decorationColor = 'blue'
 }) => {
+  if (loading) {
+    return <Skeleton className="h-40 w-full" />;
+  }
+
   const isPositive = change !== null && change >= 0;
   const changeColor = isPositive ? 'text-emerald-600' : 'text-red-600';
   const ChangeTrendIcon = isPositive ? TrendingUp : TrendingDown;
 
   return (
     <Card decoration="top" decorationColor={decorationColor} className="relative">
-      {loading && (
-        <div className="absolute inset-0 bg-white/70 flex items-center justify-center rounded-xl z-10">
-          <RefreshCw size={24} className="text-gray-400 animate-spin" />
-        </div>
-      )}
-      
       <Text className="text-gray-500 font-medium mb-1">{title}</Text>
       
       <div className="mt-2">
@@ -160,15 +159,11 @@ const PromoSelector = memo(({ selectedPromo, onSelect, promos }) => {
 
   return (
     <div className="flex flex-col gap-2">
-      <label htmlFor="promo-select" className="text-sm font-medium text-gray-700 flex items-center gap-2">
-        <Gift size={16} className="text-amber-500" />
-        Seleziona Promozione
-      </label>
-      <select
+      <Select
         id="promo-select"
+        label="Seleziona Promozione"
         value={selectedIndex >= 0 ? selectedIndex : ''}
         onChange={handleChange}
-        className="px-4 py-2.5 border border-gray-200 rounded-lg text-sm bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500 cursor-pointer"
       >
         <option value="">-- Seleziona una promo --</option>
         {sortedPromos.map((promo, idx) => (
@@ -179,7 +174,7 @@ const PromoSelector = memo(({ selectedPromo, onSelect, promos }) => {
             {promo.name} ({format(parseISO(promo.startDate), 'dd MMM', { locale: it })} - {format(parseISO(promo.endDate), 'dd MMM yyyy', { locale: it })})
           </option>
         ))}
-      </select>
+      </Select>
       
       {selectedPromo && (
         <div className="flex items-center gap-2 mt-1">
@@ -226,6 +221,10 @@ const TrafficBreakdown = memo(({ promoData, comparisonData, loading }) => {
     };
   }, [promoData, comparisonData]);
 
+  if (loading) {
+    return <Skeleton className="h-64 w-full" />;
+  }
+
   if (!trafficData) return null;
 
   const rows = [
@@ -235,12 +234,6 @@ const TrafficBreakdown = memo(({ promoData, comparisonData, loading }) => {
 
   return (
     <Card className="relative">
-      {loading && (
-        <div className="absolute inset-0 bg-white/70 flex items-center justify-center rounded-xl z-10">
-          <RefreshCw size={24} className="text-gray-400 animate-spin" />
-        </div>
-      )}
-
       <div className="flex items-center gap-2 mb-4">
         <Users size={20} className="text-blue-500" />
         <Title className="text-lg font-semibold text-gray-900">Spaccato Traffico</Title>
@@ -308,6 +301,10 @@ const CustomPieTooltip = ({ active, payload }) => {
 };
 
 const SwiByCommodityChart = memo(({ data, loading, title = "SWI per Commodity" }) => {
+  if (loading) {
+    return <Skeleton className="h-64 w-full" />;
+  }
+
   if (!data || data.length === 0) return null;
 
   const chartData = data.map(d => ({
@@ -318,12 +315,6 @@ const SwiByCommodityChart = memo(({ data, loading, title = "SWI per Commodity" }
 
   return (
     <Card className="relative">
-      {loading && (
-        <div className="absolute inset-0 bg-white/70 flex items-center justify-center rounded-xl z-10">
-          <RefreshCw size={24} className="text-gray-400 animate-spin" />
-        </div>
-      )}
-
       <div className="flex items-center gap-2 mb-4">
         <TrendingUp size={20} className="text-emerald-500" />
         <Title className="text-lg font-semibold text-gray-900">{title}</Title>
@@ -363,10 +354,10 @@ const SwiByCommodityChart = memo(({ data, loading, title = "SWI per Commodity" }
 SwiByCommodityChart.displayName = 'SwiByCommodityChart';
 
 const ProductPerformanceChart = memo(({ data, loading, title = "Performance Prodotti" }) => {
-  if (!data || data.length === 0) return null;
-
   // Limita a top 6 prodotti + "Altri"
   const chartData = useMemo(() => {
+    if (!data || data.length === 0) return [];
+
     if (data.length <= 6) {
       return data.map(d => ({
         name: d.product_name,
@@ -394,14 +385,14 @@ const ProductPerformanceChart = memo(({ data, loading, title = "Performance Prod
     ];
   }, [data]);
 
+  if (loading) {
+    return <Skeleton className="h-64 w-full" />;
+  }
+
+  if (!data || data.length === 0) return null;
+
   return (
     <Card className="relative">
-      {loading && (
-        <div className="absolute inset-0 bg-white/70 flex items-center justify-center rounded-xl z-10">
-          <RefreshCw size={24} className="text-gray-400 animate-spin" />
-        </div>
-      )}
-
       <div className="flex items-center gap-2 mb-4">
         <Package size={20} className="text-violet-500" />
         <Title className="text-lg font-semibold text-gray-900">{title}</Title>
@@ -455,14 +446,6 @@ function PromoDashboardComponent() {
     setCompEndDate,
   } = usePromo();
 
-  // Local state: Data (fetched on mount/change)
-  const [promoData, setPromoData] = useState(null);
-  const [comparisonData, setComparisonData] = useState(null);
-  const [promoSwiByComodity, setPromoSwiByComodity] = useState(null);
-  const [promoProducts, setPromoProducts] = useState(null);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState(null);
-
   // Track previous promo to detect actual changes
   const prevPromoRef = useRef(selectedPromo);
 
@@ -487,64 +470,48 @@ function PromoDashboardComponent() {
     prevPromoRef.current = selectedPromo;
   }, [selectedPromo, setCompStartDate, setCompEndDate]);
 
-  // Fetch data when promo or comparison dates change
-  const fetchData = useCallback(async () => {
-    if (!selectedPromo || !compStartDate || !compEndDate) {
-      setPromoData(null);
-      setComparisonData(null);
-      setPromoSwiByComodity(null);
-      setPromoProducts(null);
-      return;
-    }
+  // Hook Data Fetching
+  const { 
+    data: promoDataRes, 
+    isLoading: loadingPromo, 
+    error: errorPromo,
+    refetch: refetchPromo
+  } = useMetricsRange(selectedPromo?.startDate, selectedPromo?.endDate, !!selectedPromo);
 
-    setLoading(true);
-    setError(null);
+  const { 
+    data: comparisonDataRes, 
+    isLoading: loadingComp, 
+    error: errorComp,
+    refetch: refetchComp
+  } = useMetricsRange(compStartDate, compEndDate, !!(compStartDate && compEndDate));
 
-    try {
-      // Fetch all data in parallel
-      const [promoRes, compRes, swiRes, productsRes] = await Promise.all([
-        api.getMetricsRange(selectedPromo.startDate, selectedPromo.endDate),
-        api.getMetricsRange(compStartDate, compEndDate),
-        api.getSwiByCommodityRange(selectedPromo.startDate, selectedPromo.endDate),
-        api.getProductsRange(selectedPromo.startDate, selectedPromo.endDate)
-      ]);
+  const { 
+    data: swiRes, 
+    isLoading: loadingSwi,
+    refetch: refetchSwi
+  } = useSwiByCommodity(selectedPromo?.startDate, selectedPromo?.endDate, !!selectedPromo);
 
-      if (promoRes.data.success) {
-        setPromoData(promoRes.data);
-      } else {
-        throw new Error(promoRes.data.error || 'Errore caricamento dati promo');
-      }
+  const { 
+    data: productsRes, 
+    isLoading: loadingProducts,
+    refetch: refetchProducts
+  } = useProductsPerformance(selectedPromo?.startDate, selectedPromo?.endDate, !!selectedPromo);
 
-      if (compRes.data.success) {
-        setComparisonData(compRes.data);
-      } else {
-        throw new Error(compRes.data.error || 'Errore caricamento dati confronto');
-      }
+  const loading = loadingPromo || loadingComp || loadingSwi || loadingProducts;
+  const error = errorPromo || errorComp;
+  
+  const promoData = promoDataRes;
+  const comparisonData = comparisonDataRes;
+  const promoSwiByComodity = swiRes?.data;
+  const promoProducts = productsRes?.data;
 
-      // SWI by commodity (opzionale - potrebbe non esserci dati)
-      if (swiRes.data.success) {
-        setPromoSwiByComodity(swiRes.data.data);
-      }
-
-      // Products performance (opzionale)
-      if (productsRes.data.success) {
-        setPromoProducts(productsRes.data.data);
-      }
-    } catch (err) {
-      logError('Failed to fetch promo data', err);
-      setError(err.message || 'Impossibile caricare i dati');
-      toast.error('Errore nel caricamento dei dati');
-    } finally {
-      setLoading(false);
-    }
-  }, [selectedPromo, compStartDate, compEndDate]);
-
-  // Auto-fetch when dates change
-  useEffect(() => {
-    if (selectedPromo && compStartDate && compEndDate) {
-      fetchData();
-    }
-  }, [fetchData, selectedPromo, compStartDate, compEndDate]);
+  // Handle refresh
+  const handleRefresh = useCallback(() => {
+    refetchPromo();
+    refetchComp();
+    refetchSwi();
+    refetchProducts();
+  }, [refetchPromo, refetchComp, refetchSwi, refetchProducts]);
 
   // Calculate KPIs
   const kpis = useMemo(() => {
@@ -560,17 +527,9 @@ function PromoDashboardComponent() {
     const promoCrCommodity = promoData.meta?.avg_cr_commodity || 0;
     const compCrCommodity = comparisonData.meta?.avg_cr_commodity || 0;
 
-    // Sessioni Commodity: totale
-    const promoSessioniCommodity = promoData.meta?.count || 0;
-    const compSessioniCommodity = comparisonData.meta?.count || 0;
-
     // CR Luce e Gas: media
     const promoCrLucegas = promoData.meta?.avg_cr_lucegas || 0;
     const compCrLucegas = comparisonData.meta?.avg_cr_lucegas || 0;
-
-    // Sessioni Luce e Gas: totale
-    const promoSessioniLucegas = promoData.meta?.count || 0;
-    const compSessioniLucegas = comparisonData.meta?.count || 0;
 
     return {
       swi: {
@@ -620,33 +579,32 @@ function PromoDashboardComponent() {
               <Calendar size={16} className="text-blue-500" />
               Periodo di Confronto
             </label>
-            <div className="flex items-center gap-3">
-              <input
-                type="date"
-                value={compStartDate}
-                onChange={(e) => setCompStartDate(e.target.value)}
+            <div className="flex items-end gap-3">
+              <div className="flex-1">
+                <Input
+                  type="date"
+                  value={compStartDate}
+                  onChange={(e) => setCompStartDate(e.target.value)}
+                  disabled={!selectedPromo}
+                />
+              </div>
+              <ArrowRight size={18} className="text-gray-400 mb-2.5 flex-shrink-0" />
+              <div className="flex-1">
+                <Input
+                  type="date"
+                  value={compEndDate}
+                  onChange={(e) => setCompEndDate(e.target.value)}
+                  disabled={!selectedPromo}
+                />
+              </div>
+              <Button
+                onClick={handleRefresh}
                 disabled={!selectedPromo}
-                className="px-3 py-2 border border-gray-200 rounded-lg text-sm bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-50 disabled:text-gray-400"
-                aria-label="Data inizio confronto"
-              />
-              <ArrowRight size={18} className="text-gray-400 flex-shrink-0" />
-              <input
-                type="date"
-                value={compEndDate}
-                onChange={(e) => setCompEndDate(e.target.value)}
-                disabled={!selectedPromo}
-                className="px-3 py-2 border border-gray-200 rounded-lg text-sm bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-50 disabled:text-gray-400"
-                aria-label="Data fine confronto"
-              />
-              <button
-                onClick={fetchData}
-                disabled={loading || !selectedPromo}
-                className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                aria-label="Aggiorna dati"
+                isLoading={loading}
               >
-                <RefreshCw size={16} className={loading ? 'animate-spin' : ''} />
+                {!loading && <RefreshCw size={16} className="mr-2" />}
                 Aggiorna
-              </button>
+              </Button>
             </div>
             {selectedPromo && compStartDate && compEndDate && (
               <Text className="text-xs text-gray-400 mt-1">
@@ -684,7 +642,7 @@ function PromoDashboardComponent() {
       {/* Error State */}
       {error && (
         <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg text-red-700">
-          {error}
+          {error.message || 'Errore durante il caricamento dei dati'}
         </div>
       )}
 
@@ -773,4 +731,3 @@ export const PromoDashboard = memo(PromoDashboardComponent);
 PromoDashboard.displayName = 'PromoDashboard';
 
 export default PromoDashboard;
-

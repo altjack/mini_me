@@ -4,7 +4,7 @@ import { Calendar, FileText, TrendingUp } from 'lucide-react';
 /**
  * Individual stat item - memoized to prevent unnecessary re-renders
  */
-const StatItem = memo(({ icon: Icon, label, value, subtext }) => (
+const StatItem = memo(({ icon: Icon, label, value, subtext }) => ( // eslint-disable-line no-unused-vars
   <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 flex items-start space-x-4">
     <div className="p-3 bg-blue-50 rounded-lg text-blue-600">
       <Icon size={24} />

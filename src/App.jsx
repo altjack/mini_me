@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, memo, lazy, Suspense } from 'react';
+import React, { memo, lazy, Suspense } from 'react';
 import { Routes, Route, NavLink } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
 import { StatsCard } from './components/StatsCard';
@@ -6,15 +6,8 @@ import { EmailGenerator } from './components/EmailGenerator';
 import { BackfillPanel } from './components/BackfillPanel';
 import { LoginPage } from './components/LoginPage';
 import { useAuth } from './context/AuthContext';
-import { api } from './services/api';
-import { logError } from './utils/logger';
-import {
-  getFromCache,
-  setInCache,
-  CACHE_TTL,
-  invalidateCacheByPrefix
-} from './utils/cache';
 import { LayoutDashboard, Home, BarChart3, LogOut, Loader2, Gift } from 'lucide-react';
+import { useAppStats, useAppActions } from './hooks/useAppStats';
 
 // Lazy load Dashboard component (heavy due to recharts)
 const Dashboard = lazy(() => import('./components/Dashboard').then(module => ({
@@ -39,7 +32,7 @@ const DashboardLoadingFallback = () => (
 /**
  * HomePage component - memoized to prevent unnecessary re-renders
  */
-const HomePage = memo(({ stats, loadingStats, fetchStats }) => {
+const HomePage = memo(({ stats, loadingStats, onRefresh }) => {
   return (
     <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
       <div className="mb-8">
@@ -50,12 +43,12 @@ const HomePage = memo(({ stats, loadingStats, fetchStats }) => {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         {/* Left Column: Email Generation */}
         <div className="lg:col-span-2">
-          <EmailGenerator onActionComplete={fetchStats} />
+          <EmailGenerator onActionComplete={onRefresh} />
         </div>
 
         {/* Right Column: Tools */}
         <div className="lg:col-span-1">
-          <BackfillPanel onActionComplete={fetchStats} />
+          <BackfillPanel onActionComplete={onRefresh} />
 
           {/* Helper Info */}
           <div className="mt-6 bg-white rounded-xl shadow-sm border border-gray-100 p-6">
@@ -79,50 +72,13 @@ HomePage.displayName = 'HomePage';
  */
 function AuthenticatedApp() {
   const { logout, user } = useAuth();
-  const [stats, setStats] = useState(null);
-  const [loadingStats, setLoadingStats] = useState(true);
-
-  // Memoized fetch function with caching
-  const fetchStats = useCallback(async (forceRefresh = false) => {
-    const cacheKey = 'stats';
-
-    // Check cache first (unless force refresh)
-    if (!forceRefresh) {
-      const cached = getFromCache(cacheKey);
-      if (cached) {
-        setStats(cached);
-        setLoadingStats(false);
-        return;
-      }
-    }
-
-    setLoadingStats(true);
-    try {
-      const res = await api.getStats();
-      setStats(res.data);
-      // Cache the result
-      setInCache(cacheKey, res.data, CACHE_TTL.STATS);
-    } catch (err) {
-      logError('Failed to fetch stats', err);
-    } finally {
-      setLoadingStats(false);
-    }
-  }, []);
-
-  // Callback for when actions complete (invalidates cache and refetches)
-  const handleActionComplete = useCallback(() => {
-    // Invalidate stats cache and metrics cache
-    invalidateCacheByPrefix('stats');
-    invalidateCacheByPrefix('metrics');
-    fetchStats(true);
-  }, [fetchStats]);
-
-  useEffect(() => {
-    fetchStats();
-  }, [fetchStats]);
+  
+  // React Query hooks
+  const { data: stats, isLoading: loadingStats } = useAppStats();
+  const { invalidateStats } = useAppActions();
 
   // Listen for unauthorized events from API interceptor
-  useEffect(() => {
+  React.useEffect(() => {
     const handleUnauthorized = () => {
       logout();
     };
@@ -235,7 +191,7 @@ function AuthenticatedApp() {
             <HomePage
               stats={stats}
               loadingStats={loadingStats}
-              fetchStats={handleActionComplete}
+              onRefresh={invalidateStats}
             />
           }
         />

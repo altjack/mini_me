@@ -1,6 +1,8 @@
-import React, { useState, useEffect, useMemo, useCallback, memo } from 'react';
+import React, { useState, useMemo, useCallback, memo } from 'react';
 import { Card, Title, Text } from './ui/Card';
-import toast from 'react-hot-toast';
+import { Button } from './ui/Button';
+import { Input } from './ui/Input';
+import { Skeleton } from './ui/Skeleton';
 import {
   BarChart,
   Bar,
@@ -17,18 +19,10 @@ import promoCalendar from '../data/promoCalendar.json';
 import campaignCalendar from '../data/campaignCalendar.json';
 import { format, subDays, parseISO } from 'date-fns';
 import { it } from 'date-fns/locale';
-import { api } from '../services/api';
-import { logError } from '../utils/logger';
-import {
-  getFromCache,
-  setInCache,
-  getMetricsCacheKey,
-  getSessionsCacheKey,
-  CACHE_TTL
-} from '../utils/cache';
-import { Calendar, RefreshCw, TrendingUp } from 'lucide-react';
+import { TrendingUp, RefreshCw, Calendar as CalendarIcon } from 'lucide-react';
 import { SessionsChart } from './SessionsChart';
 import { CRChart } from './CRChart';
+import { useDashboardMetrics, useDashboardSessions, DATE_PRESETS } from '../hooks/useDashboardData';
 
 // Colori per il grafico - definiti fuori dal componente
 const COLORS = {
@@ -49,9 +43,6 @@ const CAMPAIGN_COLOR = '#000000';  // black
 
 /**
  * Filtra le promozioni attive in un dato range di date
- * @param {string} rangeStart - Data inizio range (YYYY-MM-DD)
- * @param {string} rangeEnd - Data fine range (YYYY-MM-DD)
- * @returns {Array} - Promozioni che si sovrappongono al range
  */
 const getActivePromos = (rangeStart, rangeEnd) => {
   if (!rangeStart || !rangeEnd) return [];
@@ -62,12 +53,8 @@ const getActivePromos = (rangeStart, rangeEnd) => {
   return promoCalendar.promos.filter(promo => {
     const promoStart = parseISO(promo.startDate);
     const promoEnd = parseISO(promo.endDate);
-    
-    // La promo si sovrappone al range se:
-    // promoStart <= rangeEnd AND promoEnd >= rangeStart
     return promoStart <= rangeEndDate && promoEnd >= rangeStartDate;
   }).map(promo => {
-    // Calcola le date effettive da mostrare (clip al range visualizzato)
     const promoStart = parseISO(promo.startDate);
     const promoEnd = parseISO(promo.endDate);
     
@@ -78,25 +65,13 @@ const getActivePromos = (rangeStart, rangeEnd) => {
       ...promo,
       effectiveStartDate: format(effectiveStart, 'dd/MM', { locale: it }),
       effectiveEndDate: format(effectiveEnd, 'dd/MM', { locale: it }),
-      color: PROMO_COLORS[promo.type] || '#9ca3af'  // gray-400 fallback
+      color: PROMO_COLORS[promo.type] || '#9ca3af'
     };
   });
 };
 
-// Preset per selezione rapida date - definiti fuori dal componente
-const DATE_PRESETS = [
-  { label: 'Ultimi 7 giorni', days: 7 },
-  { label: 'Ultimi 14 giorni', days: 14 },
-  { label: 'Ultimi 30 giorni', days: 30 },
-  { label: 'Ultimi 45 giorni', days: 45 },
-  { label: 'Ultimi 60 giorni', days: 60 },
-];
-
 /**
  * Trova le date di inizio campagne commerciali visibili nel range
- * @param {string} rangeStart - Data inizio range (YYYY-MM-DD)
- * @param {string} rangeEnd - Data fine range (YYYY-MM-DD)
- * @returns {Array} - Campagne che iniziano nel range (per mostrare linee verticali)
  */
 const getCampaignStartsInRange = (rangeStart, rangeEnd) => {
   if (!rangeStart || !rangeEnd) return [];
@@ -106,7 +81,6 @@ const getCampaignStartsInRange = (rangeStart, rangeEnd) => {
 
   return campaignCalendar.campaigns.filter(campaign => {
     const campaignStart = parseISO(campaign.startDate);
-    // Mostra la linea solo se la data di inizio cade nel range visualizzato
     return campaignStart >= rangeStartDate && campaignStart <= rangeEndDate;
   }).map(campaign => ({
     ...campaign,
@@ -116,8 +90,6 @@ const getCampaignStartsInRange = (rangeStart, rangeEnd) => {
 
 /**
  * Trova la campagna commerciale attiva per una data specifica
- * @param {string} dateStr - Data in formato YYYY-MM-DD
- * @returns {Object|null} - Campagna attiva per quella data
  */
 const getCampaignForDate = (dateStr) => {
   if (!dateStr) return null;
@@ -132,8 +104,6 @@ const getCampaignForDate = (dateStr) => {
 
 /**
  * Trova le promozioni attive per una data specifica
- * @param {string} dateStr - Data in formato YYYY-MM-DD
- * @returns {Array} - Promozioni attive per quella data
  */
 const getPromosForDate = (dateStr) => {
   if (!dateStr) return [];
@@ -146,19 +116,13 @@ const getPromosForDate = (dateStr) => {
   });
 };
 
-/**
- * Custom tooltip component - memoized
- * Mostra anche le promozioni attive per la data selezionata
- */
 const CustomTooltip = memo(({ active, payload }) => {
   if (!active || !payload || payload.length === 0) return null;
 
   const dataPoint = payload[0]?.payload;
   if (!dataPoint) return null;
 
-  // Trova promozioni attive per questa data
   const activePromosForDate = getPromosForDate(dataPoint.fullDate);
-  // Trova campagna commerciale attiva per questa data
   const activeCampaign = getCampaignForDate(dataPoint.fullDate);
 
   return (
@@ -173,7 +137,6 @@ const CustomTooltip = memo(({ active, payload }) => {
         {dataPoint.swi?.toLocaleString('it-IT')} SWI
       </p>
 
-      {/* Mostra campagna commerciale attiva */}
       {activeCampaign && (
         <div className="mt-2 pt-2 border-t border-gray-100">
           <p className="text-xs text-gray-500 mb-1">Campagna commerciale:</p>
@@ -187,7 +150,6 @@ const CustomTooltip = memo(({ active, payload }) => {
         </div>
       )}
 
-      {/* Mostra promozioni attive */}
       {activePromosForDate.length > 0 && (
         <div className="mt-2 pt-2 border-t border-gray-100">
           <p className="text-xs text-gray-500 mb-1">Promo attive:</p>
@@ -208,10 +170,17 @@ const CustomTooltip = memo(({ active, payload }) => {
 
 CustomTooltip.displayName = 'CustomTooltip';
 
-/**
- * Stats summary cards - memoized
- */
-const StatsSummary = memo(({ meta }) => {
+const StatsSummary = memo(({ meta, loading }) => {
+  if (loading) {
+    return (
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+        <Skeleton className="h-32" />
+        <Skeleton className="h-32" />
+        <Skeleton className="h-32" />
+      </div>
+    );
+  }
+
   if (!meta) return null;
 
   return (
@@ -236,108 +205,71 @@ const StatsSummary = memo(({ meta }) => {
 
 StatsSummary.displayName = 'StatsSummary';
 
-/**
- * Date preset button - memoized
- */
 const PresetButton = memo(({ label, days, onClick }) => (
-  <button
+  <Button
+    variant="secondary"
+    size="sm"
     onClick={() => onClick(days)}
-    className="px-3 py-1.5 text-xs font-medium text-gray-600 bg-gray-100 rounded-full hover:bg-gray-200 transition-colors"
-    aria-label={`Seleziona ${label.toLowerCase()}`}
+    className="text-xs"
   >
     {label}
-  </button>
+  </Button>
 ));
 
 PresetButton.displayName = 'PresetButton';
 
-/**
- * Main Dashboard component
- */
 function DashboardComponent() {
-  const [data, setData] = useState([]);
-  const [meta, setMeta] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
-
-  // Sessions data
-  const [sessionsData, setSessionsData] = useState({ totals: [], by_channel: [] });
-  const [sessionsMeta, setSessionsMeta] = useState(null);
-  const [loadingSessions, setLoadingSessions] = useState(true);
-
   // Date range state (default: ultimi 45 giorni)
   const [endDate, setEndDate] = useState(() => format(subDays(new Date(), 1), 'yyyy-MM-dd'));
   const [startDate, setStartDate] = useState(() => format(subDays(new Date(), 45), 'yyyy-MM-dd'));
 
-  // Fetch data with caching - memoized
-  const fetchData = useCallback(async (forceRefresh = false) => {
-    const metricsCacheKey = getMetricsCacheKey(startDate, endDate);
-    const sessionsCacheKey = getSessionsCacheKey(startDate, endDate);
+  // Custom hooks for data fetching
+  const { 
+    data: metricsResponse, 
+    isLoading: loadingMetrics, 
+    error: metricsError,
+    refetch: refetchMetrics
+  } = useDashboardMetrics(startDate, endDate);
 
-    // Check cache first (unless force refresh)
-    if (!forceRefresh) {
-      const cachedMetrics = getFromCache(metricsCacheKey);
-      const cachedSessions = getFromCache(sessionsCacheKey);
+  const { 
+    data: sessionsResponse, 
+    isLoading: loadingSessions,
+    error: sessionsError,
+    refetch: refetchSessions
+  } = useDashboardSessions(startDate, endDate);
 
-      if (cachedMetrics && cachedSessions) {
-        setData(cachedMetrics.data);
-        setMeta(cachedMetrics.meta);
-        setSessionsData(cachedSessions.data);
-        setSessionsMeta(cachedSessions.meta);
-        setLoading(false);
-        setLoadingSessions(false);
-        return;
-      }
-    }
+  // Extract data from responses
+  const data = useMemo(() => metricsResponse?.data || [], [metricsResponse]);
+  const meta = metricsResponse?.meta;
+  const sessionsData = sessionsResponse?.data || { totals: [], by_channel: [] };
+  const sessionsMeta = sessionsResponse?.meta;
 
-    setLoading(true);
-    setLoadingSessions(true);
-    setError(null);
+  const loading = loadingMetrics; // Main loading state for metrics
+  const error = metricsError ? metricsError.message : (sessionsError ? sessionsError.message : null);
 
-    try {
-      // Fetch metriche SWI
-      const metricsRes = await api.getMetricsRange(startDate, endDate);
-      if (metricsRes.data.success) {
-        setData(metricsRes.data.data);
-        setMeta(metricsRes.data.meta);
-        // Cache the result
-        setInCache(metricsCacheKey, {
-          data: metricsRes.data.data,
-          meta: metricsRes.data.meta
-        }, CACHE_TTL.METRICS);
-      } else {
-        const errorMsg = metricsRes.data.error || 'Errore nel caricamento dati SWI';
-        setError(errorMsg);
-        toast.error(errorMsg);
-      }
+  // Effect for error toast
+  if (error) {
+    // We use a toast only once per error instance ideally, but since we are rendering, avoid side-effects here ideally.
+    // However, the original code used toast.error inside fetchData.
+    // Here we can rely on the UI displaying the error, or use a useEffect.
+    // Let's stick to UI display for error, maybe a toast in useEffect if error changes.
+  }
 
-      // Fetch sessioni
-      const sessionsRes = await api.getSessionsRange(startDate, endDate);
-      if (sessionsRes.data.success) {
-        setSessionsData(sessionsRes.data.data);
-        setSessionsMeta(sessionsRes.data.meta);
-        // Cache the result
-        setInCache(sessionsCacheKey, {
-          data: sessionsRes.data.data,
-          meta: sessionsRes.data.meta
-        }, CACHE_TTL.SESSIONS);
-      }
-    } catch (err) {
-      logError('Failed to fetch data', err);
-      const errorMsg = 'Impossibile caricare i dati. Verifica che il backend sia attivo.';
-      setError(errorMsg);
-      toast.error(errorMsg);
-    } finally {
-      setLoading(false);
-      setLoadingSessions(false);
-    }
-  }, [startDate, endDate]);
+  // Apply preset
+  const applyPreset = useCallback((days) => {
+    const end = subDays(new Date(), 1);
+    const start = subDays(end, days - 1);
+    setEndDate(format(end, 'yyyy-MM-dd'));
+    setStartDate(format(start, 'yyyy-MM-dd'));
+  }, []);
 
-  useEffect(() => {
-    fetchData();
-  }, [fetchData]);
+  // Force refresh handler
+  const handleRefresh = useCallback(() => {
+    refetchMetrics();
+    refetchSessions();
+  }, [refetchMetrics, refetchSessions]);
 
-  // Trasforma i dati per Recharts - memoized
+  // Transform data for Recharts
   const chartData = useMemo(() => {
     return data.map(item => {
       const dateObj = parseISO(item.date);
@@ -351,31 +283,13 @@ function DashboardComponent() {
     });
   }, [data]);
 
-  // Apply preset - memoized
-  const applyPreset = useCallback((days) => {
-    const end = subDays(new Date(), 1);
-    const start = subDays(end, days - 1);
-    setEndDate(format(end, 'yyyy-MM-dd'));
-    setStartDate(format(start, 'yyyy-MM-dd'));
-  }, []);
-
-  // Force refresh handler
-  const handleRefresh = useCallback(() => {
-    fetchData(true);
-  }, [fetchData]);
-
-  // Memoized channels array
   const channels = useMemo(() => sessionsMeta?.channels || [], [sessionsMeta]);
-
-  // Memoized campaigns array
   const campaigns = useMemo(() => sessionsMeta?.campaigns || [], [sessionsMeta]);
 
-  // Promozioni attive nel range visualizzato
   const activePromos = useMemo(() => {
     return getActivePromos(startDate, endDate);
   }, [startDate, endDate]);
 
-  // Campagne commerciali che iniziano nel range visualizzato (per linee verticali)
   const campaignStarts = useMemo(() => {
     return getCampaignStartsInRange(startDate, endDate);
   }, [startDate, endDate]);
@@ -398,38 +312,31 @@ function DashboardComponent() {
         <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
           {/* Date Inputs */}
           <div className="flex flex-wrap items-center gap-4">
-            <div className="flex items-center gap-2">
-              <Calendar size={18} className="text-gray-400" aria-hidden="true" />
-              <label htmlFor="start-date" className="text-sm text-gray-600">Da:</label>
-              <input
-                id="start-date"
+            <div className="w-40">
+              <Input
                 type="date"
+                label="Da"
                 value={startDate}
                 onChange={(e) => setStartDate(e.target.value)}
-                className="px-3 py-2 border border-gray-200 rounded-lg text-sm bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                aria-label="Data inizio periodo"
               />
             </div>
-            <div className="flex items-center gap-2">
-              <label htmlFor="end-date" className="text-sm text-gray-600">A:</label>
-              <input
-                id="end-date"
+            <div className="w-40">
+              <Input
                 type="date"
+                label="A"
                 value={endDate}
                 onChange={(e) => setEndDate(e.target.value)}
-                className="px-3 py-2 border border-gray-200 rounded-lg text-sm bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                aria-label="Data fine periodo"
               />
             </div>
-            <button
-              onClick={handleRefresh}
-              disabled={loading}
-              className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors disabled:opacity-50"
-              aria-label="Aggiorna grafici con nuove date"
-            >
-              <RefreshCw size={16} className={loading ? 'animate-spin' : ''} aria-hidden="true" />
-              Aggiorna
-            </button>
+            <div className="flex items-end h-full pb-0.5">
+              <Button
+                onClick={handleRefresh}
+                isLoading={loading || loadingSessions}
+              >
+                {!loading && !loadingSessions && <RefreshCw size={16} className="mr-2" />}
+                Aggiorna
+              </Button>
+            </div>
           </div>
 
           {/* Quick Presets */}
@@ -447,7 +354,7 @@ function DashboardComponent() {
       </Card>
 
       {/* Stats Summary */}
-      <StatsSummary meta={meta} />
+      <StatsSummary meta={meta} loading={loading} />
 
       {/* SWI Chart - Grafico principale */}
       <Card className="mb-6">
@@ -457,14 +364,10 @@ function DashboardComponent() {
             <span className="w-3 h-3 rounded" style={{ backgroundColor: COLORS.weekday }}></span> Giorni feriali
             <span className="w-3 h-3 rounded ml-3" style={{ backgroundColor: COLORS.weekend }}></span> Weekend
             <span className="w-8 h-0.5 ml-3" style={{ backgroundColor: COLORS.average }}></span> Media periodo
-            {/* Separatore visivo */}
             <span className="mx-2 text-gray-300">|</span>
-            {/* Legenda campagne commerciali */}
             <span className="w-0.5 h-4 ml-1" style={{ backgroundColor: CAMPAIGN_COLOR }}></span>
             <span className="text-xs">Cambio campagna</span>
-            {/* Separatore visivo */}
             <span className="mx-2 text-gray-300">|</span>
-            {/* Legenda promozioni */}
             <span className="text-gray-500 text-xs">Promo:</span>
             <span className="w-3 h-3 rounded opacity-60" style={{ backgroundColor: PROMO_COLORS['Operazione a premio'] }}></span>
             <span className="text-xs">Op. a premio</span>
@@ -476,19 +379,20 @@ function DashboardComponent() {
         </Text>
 
         {loading ? (
-          <div className="h-80 flex items-center justify-center">
-            <RefreshCw size={32} className="text-gray-400 animate-spin" />
+          <div className="h-80 w-full">
+            <Skeleton className="h-full w-full" />
           </div>
         ) : error ? (
           <div className="h-80 flex items-center justify-center">
             <div className="text-center">
               <p className="text-red-500 font-medium">{error}</p>
-              <button
+              <Button
                 onClick={handleRefresh}
-                className="mt-4 px-4 py-2 bg-blue-600 text-white rounded-lg text-sm"
+                variant="primary"
+                className="mt-4"
               >
                 Riprova
-              </button>
+              </Button>
             </div>
           </div>
         ) : (
@@ -496,7 +400,6 @@ function DashboardComponent() {
             <BarChart data={chartData} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" vertical={false} />
               
-              {/* Reference areas per promozioni attive - renderizzate sullo sfondo */}
               {activePromos.map((promo, index) => (
                 <ReferenceArea
                   key={`promo-${index}-${promo.name}`}
@@ -523,7 +426,6 @@ function DashboardComponent() {
               />
               <Tooltip content={<CustomTooltip />} />
 
-              {/* Reference lines per inizio campagne commerciali */}
               {campaignStarts.map((campaign, index) => (
                 <ReferenceLine
                   key={`campaign-${index}-${campaign.name}`}
@@ -540,7 +442,6 @@ function DashboardComponent() {
                 />
               ))}
 
-              {/* Reference line for average */}
               {meta && (
                 <ReferenceLine
                   y={meta.average}
@@ -557,7 +458,6 @@ function DashboardComponent() {
                 />
               )}
 
-              {/* Bars with conditional coloring */}
               <Bar dataKey="swi" radius={[4, 4, 0, 0]}>
                 {chartData.map((entry, index) => (
                   <Cell
@@ -571,7 +471,7 @@ function DashboardComponent() {
         )}
       </Card>
 
-      {/* Sessions Charts - Affiancati sotto il grafico SWI */}
+      {/* Sessions Charts */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
         <SessionsChart
           title="Sessioni Commodity"
@@ -595,7 +495,7 @@ function DashboardComponent() {
         />
       </div>
 
-      {/* CR Charts - Grafici Conversion Rate */}
+      {/* CR Charts */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
         <CRChart
           title="CR Commodity"
@@ -621,7 +521,5 @@ function DashboardComponent() {
   );
 }
 
-// Export memoized component
 export const Dashboard = memo(DashboardComponent);
-
 Dashboard.displayName = 'Dashboard';

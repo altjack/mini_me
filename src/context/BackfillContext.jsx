@@ -130,6 +130,7 @@ export const BackfillProvider = ({ children }) => {
 // HOOK
 // =============================================================================
 
+// eslint-disable-next-line react-refresh/only-export-components
 export const useBackfill = () => {
   const context = useContext(BackfillContext);
   if (!context) {

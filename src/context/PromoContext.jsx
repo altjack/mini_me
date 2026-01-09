@@ -62,6 +62,7 @@ export const PromoProvider = ({ children }) => {
 // HOOK
 // =============================================================================
 
+// eslint-disable-next-line react-refresh/only-export-components
 export const usePromo = () => {
   const context = useContext(PromoContext);
   if (!context) {

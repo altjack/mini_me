@@ -61,7 +61,7 @@ Card.displayName = 'Card';
 export const Title = React.forwardRef(({
   children,
   className,
-  as: Component = 'h3',
+  as: Component = 'h3', // eslint-disable-line no-unused-vars
   ...props
 }, ref) => {
   return (
@@ -87,7 +87,7 @@ Title.displayName = 'Title';
 export const Text = React.forwardRef(({
   children,
   className,
-  as: Component = 'p',
+  as: Component = 'p', // eslint-disable-line no-unused-vars
   ...props
 }, ref) => {
   return (
